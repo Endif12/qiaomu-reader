@@ -34,3 +34,16 @@ test('PDF worker initialization coalesces concurrent requests and retries after 
   await Promise.all([retry,concurrent]);await setup();
   assert.equal(calls,2);assert.equal(urls,1);assert.equal(pdfjsLib.GlobalWorkerOptions.workerSrc,'blob:worker');
 });
+
+test('browser ZIP scheduler accepts functions, preserves arguments and supports cancellation', () => {
+  const source=fs.readFileSync(new URL('../build-stubs/set-immediate.js',import.meta.url),'utf8');
+  const scheduled=new Map();let next=0;const values=[];
+  const globalThis={setTimeout:fn=>{scheduled.set(++next,fn);return next;},clearTimeout:id=>scheduled.delete(id)};
+  vm.runInNewContext(source,{globalThis});
+  assert.throws(()=>globalThis.setImmediate('source text'),/function callback/);
+  const cancelled=globalThis.setImmediate(()=>assert.fail('cancelled task ran'));
+  globalThis.clearImmediate(cancelled);
+  globalThis.setImmediate((...args)=>values.push(args), 'pdf', 5);
+  for(const fn of scheduled.values())fn();
+  assert.deepEqual(values,[['pdf',5]]);
+});

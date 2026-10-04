@@ -152,6 +152,9 @@ const ctx = await esbuild.context({
   // localforage, которые в Obsidian никогда не выполняются, зато выглядят для
   // автопроверки каталога как доступ к файловой системе и загрузка скриптов.
   alias: {
+    jszip: "./node_modules/jszip/lib/index.js",
+    lie: "./build-stubs/promise.cjs",
+    setimmediate: "./build-stubs/set-immediate.js",
     fs: "./build-stubs/empty.js",
     http: "./build-stubs/empty.js",
     https: "./build-stubs/empty.js",

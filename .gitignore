@@ -30,3 +30,6 @@ tools-*.cjs
 # Промо-ролик и вспомогательные артефакты — не часть плагина.
 promo-video/
 main.js.json
+
+# Exclude dependency directories and developer symlinks alike.
+node_modules

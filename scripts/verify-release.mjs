@@ -45,6 +45,8 @@ const assets = Object.fromEntries(releaseFiles.map((name) => {
 }));
 
 const mainSource = fs.readFileSync(path.join(profile.outputDir, "main.js"), "utf8");
+requireCheck(!/createElement\s*\(\s*["']script["']/.test(mainSource), "bundle includes runtime script injection");
+requireCheck(!/new\s+Function\s*\(/.test(mainSource), "bundle includes string callback execution");
 requireCheck(mainSource.includes(`Build channel: ${profile.name}`), "bundle channel does not match verification profile");
 if (profile.name === "community") {
   const info = readJson(path.join(profile.outputDir, "build-info.json"));
