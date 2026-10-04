@@ -218,9 +218,10 @@ test("layout supports explicit one/two columns, narrow panes and scroll mode; if
   assert.equal(key(paragraph, "ArrowLeft", { shiftKey: true }), false);
   assert.equal(key(dom.window.document.querySelector("input"), "ArrowRight"), false);
   scroll = true;
-  assert.equal(key(paragraph, "ArrowDown"), false);
+  assert.equal(key(paragraph, "ArrowDown"), true);
+  assert.equal(key(paragraph, " "), true);
   cleanup(); key(paragraph, "ArrowRight");
-  assert.deepEqual(calls, ["next", "prev"]);
+  assert.deepEqual(calls, ["next", "prev", "next", "next"]);
   dom.window.close();
 });
 
@@ -585,4 +586,35 @@ test("reused PDF markup updates layout CSS without replacing loaded images or se
   assert.equal(dom.window.getSelection().toString(), 'selected text');
   assert.equal(flow.querySelector('style').textContent, 'new layout rules');
   dom.window.close();
+});
+
+test("rapid page turns run in order, recover after errors and cancel queued turns on close", async () => {
+  const dom = new JSDOM("<body><main></main></body>", { runScripts: "outside-only" });
+  const elements = foliateElements(root);
+  const { EpubEngine } = evaluate(dom, await bundle(elements));
+  const View = dom.window.customElements.get(JSON.parse(elements.define.__QBR_ENGINE_VIEW_TAG__));
+  const turns = []; let release;
+  View.prototype.open = async function () { this.book = { destroy() {} }; };
+  View.prototype.init = async function () { this.lastLocation = { cfi: "test" }; this.renderer = { getContents: () => [{ doc: dom.window.document }] }; };
+  View.prototype.close = function () {};
+  View.prototype.next = async function () { turns.push("next"); await new Promise(resolve => { release = resolve; }); };
+  View.prototype.prev = async function () { turns.push("prev"); };
+  const engine = new EpubEngine(engineHost(dom));
+  try {
+    await engine.open(new Uint8Array(), "test.epub");
+    const first = engine.next(); const second = engine.prev(); const third = engine.prev();
+    await Promise.resolve();
+    assert.deepEqual(turns, ["next"]);
+    release(); await Promise.all([first, second, third]);
+    assert.deepEqual(turns, ["next", "prev", "prev"]);
+    View.prototype.next = async function () { throw new Error("turn failed"); };
+    const failure = engine.next(); const recovered = engine.prev();
+    await assert.rejects(failure, /turn failed/); await recovered;
+    assert.equal(turns.at(-1), "prev");
+    View.prototype.next = async function () { turns.push("next"); await new Promise(resolve => { release = resolve; }); };
+    const pending = engine.next(); const cancelled = engine.prev();
+    await Promise.resolve(); engine.destroy(); release();
+    const count = turns.length; await Promise.all([pending, cancelled]);
+    assert.equal(turns.length, count);
+  } finally { engine.destroy(); dom.window.close(); }
 });

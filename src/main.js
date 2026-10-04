@@ -17,6 +17,7 @@ import { HL_COLOR_SWATCHES } from "./highlight-colors.js";
  */
 import { AbstractInputSuggest, Component, FuzzySuggestModal, ItemView, MarkdownView, MarkdownRenderer, Menu, Modal, Notice, Platform, Plugin, PluginSettingTab, Scope, SecretComponent, Setting, TFile, TFolder, normalizePath, requestUrl, setIcon } from "obsidian";
 import { EpubEngine, ENGINE_EXTENSIONS, coverFromBytes } from "./reader-engine.js";
+import { bindReaderPageKeys } from "./reader-keyboard.js";
 import { coverPalette, migrateCoverCache } from "./book-cover.js";
 // One place decides which extensions the reader opens: the rendering engine
 // handles everything here except PDF, which keeps its dedicated pdf.js path.
@@ -953,10 +954,14 @@ function buildReaderPageArea(view, root, areaCls) {
 // _nav instead of nav.
 function buildReaderBotNav(view, root, bot, opts = {}) {
   const kind = opts.buttonType ? { type: "button" } : {};
-  const turn = (dir) => (view.nav ? view.nav(dir) : view._nav(dir));
+  view.areaEl.tabIndex = -1;
+  const turn = (dir, event) => {
+    if (event?.detail > 0) view.areaEl.focus({ preventScroll: true });
+    return view.nav ? view.nav(dir) : view._nav(dir);
+  };
   const prev = bot.createEl("button", { cls: "qiaomu-reader-navbtn", attr: { ...kind, "aria-label": qiaomuReaderTranslate("back-3") } });
   svgIcon(prev, "chevron-left");
-  prev.addEventListener("click", () => turn("prev"));
+  prev.addEventListener("click", event => turn("prev", event));
   const strip = bot.createDiv("qiaomu-reader-bot-center");
   view.locEl = strip.createEl("button", { cls: "qiaomu-reader-loc qiaomu-reader-loc-clickable", attr: kind });
   view.locEl.addEventListener("click", () => openReaderPagePicker(view));
@@ -964,7 +969,7 @@ function buildReaderBotNav(view, root, bot, opts = {}) {
   view.pctEl.setText("0%");
   const next = bot.createEl("button", { cls: "qiaomu-reader-navbtn", attr: { ...kind, "aria-label": qiaomuReaderTranslate("next-2") } });
   svgIcon(next, "chevron-right");
-  next.addEventListener("click", () => turn("next"));
+  next.addEventListener("click", event => turn("next", event));
   view._pageButtons = { root, toolbar: bot, previous: prev, next };
   syncPageButtons(view);
   addReaderNavigation(view, bot, opts.findBtn, opts.tocBtn);
@@ -1054,8 +1059,26 @@ function attachReaderSwipeNav(view) {
   });
 }
 
-// Zoom gestures and immersive chrome behave the same once either host's DOM
-// is in place.
+// Events inside book iframes are handled by the engine; host events belong
+// only to this visible reader, never an editor, another reader or a dialog.
+function readerOwnsKeyEvent(view, event) {
+  if (event.defaultPrevented || view._closed || !view.containerEl.isConnected) return false;
+  const doc = docOf(view.containerEl);
+  const target = event.composedPath?.()[0] || event.target;
+  const focused = doc.activeElement;
+  if (focused?.isContentEditable || focused?.closest?.("input,textarea,select,[contenteditable]:not([contenteditable=false])")) return false;
+  const modal = target?.closest?.(".modal-container");
+  if (modal && modal !== view.containerEl) return false;
+  if (!modal && doc.querySelector(".modal-container")) return false;
+  if (view.containerEl.contains(target) || view.containerEl.contains(focused)) return true;
+  // Closing an overlay can leave focus on body. Fall back only from there,
+  // rather than treating an active reader as permission to hijack other UI.
+  return (target === doc || target === doc.body || target === doc.documentElement)
+    && (focused === doc.body || focused === doc.documentElement || !focused)
+    && view.app.workspace.getActiveViewOfType(view.constructor) === view;
+}
+
+// Zoom gestures and immersive chrome behave the same in both reader hosts.
 function wireReaderChrome(view, root) {
   setupPdfZoomInteractions(view);
   setupImmersiveChrome(view, root);
@@ -8470,12 +8493,26 @@ function applyAiReadingAppearance(root, plugin) {
     "--background-modifier-border": theme.border, "--text-normal": theme.text,
     "--text-muted": theme.muted, "--text-faint": theme.muted,
     "--code-background": theme.ui, "--code-normal": theme.text,
-    "--interactive-accent": theme.text,
+    "--interactive-accent": theme.text, "--interactive-accent-hover": theme.text,
+    "--text-on-accent": theme.bg,
+    "--interactive-normal": theme.ui,
+    "--interactive-hover": `color-mix(in srgb, ${theme.text} 8%, ${theme.ui})`,
+    "--background-modifier-hover": `color-mix(in srgb, ${theme.text} 8%, ${theme.bg})`,
+    "--background-modifier-form-field": theme.ui,
+    "--setting-items-background": theme.ui,
+    "--setting-items-border-color": theme.border,
+    "--dropdown-background": theme.ui, "--dropdown-background-hover": theme.ui,
+    "--checkbox-color": theme.text, "--checkbox-marker-color": theme.bg,
+    "--icon-color": theme.muted, "--icon-color-hover": theme.text,
+    "--icon-color-active": theme.text, "--icon-color-focused": theme.text,
+    "--input-shadow": "none", "--input-shadow-hover": "none",
   };
   for (const [key, value] of Object.entries(palette)) {
     if (settings.theme === "auto" && !settings.einkMode) root.style.removeProperty(key);
     else root.style.setProperty(key, value);
   }
+  if (settings.theme === "auto" && !settings.einkMode) root.style.removeProperty("color-scheme");
+  else root.style.setProperty("color-scheme", theme.dark ? "dark" : "light");
   void ensureSelectedReaderFont(docOf(root), plugin, settings);
 }
 function refreshAiReadingAppearance(plugin) {
@@ -11008,27 +11045,16 @@ const ReaderView = class extends ItemView {
       }
     });
     this.registerDomEvent(docOf(this.containerEl), "keydown", (ev) => {
-      if (!this.bookHtml) {
-        return;
-      }
-      const focused = docOf(this.areaEl).activeElement;
-      if (focused && (focused.tagName === "INPUT" || focused.tagName === "TEXTAREA" || focused.isContentEditable)) return;
-      if (!this.containerEl.contains(focused) && this.app.workspace.getActiveViewOfType(this.constructor) !== this) return;
+      if (!this.bookHtml || !readerOwnsKeyEvent(this, ev)) return;
       const zoom = readerIsPdf(this) && pdfZoomShortcut(ev);
-      if (zoom) {
-        ev.preventDefault();
-        if (zoom === "reset") applyPdfZoom(this, PDF_ZOOM_DEFAULT);
-        else changePdfZoom(this, zoom === "in" ? 1 : -1);
-        return;
-      }
-      const toNext = ["ArrowRight", "ArrowDown", " "];
-      const toPrev = ["ArrowLeft", "ArrowUp"];
-      const step = toNext.includes(ev.key) ? "next" : toPrev.includes(ev.key) ? "prev" : null;
-      if (step) {
-        ev.preventDefault();
-        this.nav(step);
-      }
+      if (!zoom) return;
+      ev.preventDefault();
+      if (zoom === "reset") applyPdfZoom(this, PDF_ZOOM_DEFAULT);
+      else changePdfZoom(this, zoom === "in" ? 1 : -1);
     });
+    const unbindKeys = bindReaderPageKeys(docOf(this.containerEl), direction => this.nav(direction),
+      event => !!this.bookHtml && readerOwnsKeyEvent(this, event));
+    this.register(unbindKeys);
     attachReaderSwipeNav(this);
     wireReaderChrome(this, root);
   }
@@ -11060,8 +11086,6 @@ const ReaderView = class extends ItemView {
       return;
     if (this.engine) {
       const engineNow = Date.now();
-      if (this._lastNavTs && engineNow - this._lastNavTs < 90) return;
-      this._lastNavTs = engineNow;
       this._lastActive = engineNow;
       void (dir === "next" ? this.engine.next() : this.engine.prev()).catch(error => {
         console.warn("Qiaomu Reader: page turn failed", error);
@@ -11069,8 +11093,6 @@ const ReaderView = class extends ItemView {
       return;
     }
     const _now = Date.now();
-    if (this._lastNavTs && _now - this._lastNavTs < 90) return;
-    this._lastNavTs = _now;
     this._lastActive = _now;
     if (this._layoutWidthStale()) {
       this.repaginate().then(() => this._navNow(dir)).catch(() => this._navNow(dir));
@@ -12389,6 +12411,8 @@ const ReaderModal = class extends Modal {
     this._applyTopInset(contentEl);
     this._installCloseGuard(modalEl);
     this._applyTheme(); this._buildDOM();
+    this._pageKeysCleanup = bindReaderPageKeys(docOf(this.containerEl), direction => this._nav(direction),
+      event => !!this.bookHtml && !this._closed && readerOwnsKeyEvent(this, event));
     const visibilityDoc = docOf(this.contentEl);
     const onVisible = () => { void renderVisibleFigures(this); };
     visibilityDoc.addEventListener("visibilitychange", onVisible);
@@ -12723,8 +12747,6 @@ const ReaderModal = class extends Modal {
     if (!this.bookHtml) return;
     if (this.engine) {
       const engineNow = Date.now();
-      if (this._lastNavTs && engineNow - this._lastNavTs < 90) return;
-      this._lastNavTs = engineNow;
       this._lastActive = engineNow;
       void (dir === "next" ? this.engine.next() : this.engine.prev()).catch(error => {
         console.warn("Qiaomu Reader: page turn failed", error);
@@ -12732,8 +12754,6 @@ const ReaderModal = class extends Modal {
       return;
     }
     const _now = Date.now();
-    if (this._lastNavTs && _now - this._lastNavTs < 90) return;
-    this._lastNavTs = _now;
     this._lastActive = _now;
     this._hideHlPopup();
     const [cur, total] = dir === "next" ? this.pager.next() : this.pager.prev();
@@ -13113,6 +13133,7 @@ const ReaderModal = class extends Modal {
     await persistCurrentReaderPosition(this); stopReadingTimer(this);
     window.clearTimeout(this._engineSelTimer);
     this.engine?.destroy(); this.engine = null; this._engineLocation = null;
+    this._pageKeysCleanup?.(); this._pageKeysCleanup = null;
     if (this.plugin._openReaderModal === this) { this.plugin._openReaderModal = null; }
     clearFoundIn(this); this._removeSelectionListener();
     this._detachReaderObservers(); this.contentEl.empty();
