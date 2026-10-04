@@ -9,4 +9,5 @@ export function installZipScheduler(target) {
   };
   target.clearImmediate = handle => target.clearTimeout(handle);
 }
+// eslint-disable-next-line obsidianmd/no-global-this -- Polyfill targets the execution realm used by JSZip, not a popout document.
 installZipScheduler(globalThis);
