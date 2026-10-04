@@ -1007,6 +1007,13 @@ img.qiaomu-reader-pdf-lazy:not([data-loaded="1"]) { background:color-mix(in srgb
 
 /* Companion appearance: only conversation text changes font and size. */
 .qiaomu-reader-ai-appearance { background: var(--background-primary); color: var(--text-normal); }
+.qiaomu-reader-ai-appearance .setting-item-name { color: var(--text-normal); }
+.qiaomu-reader-ai-appearance :is(select,input,textarea) { color: var(--text-normal); }
+.qiaomu-reader-ai-appearance select.dropdown { appearance: auto; background-image: none; padding-right: 12px; }
+.qiaomu-reader-ai-appearance button.mod-cta { background: var(--text-normal); color: var(--background-primary); box-shadow: none; }
+.qiaomu-reader-ai-appearance button.mod-cta:disabled { opacity: .6; }
+.qiaomu-reader-ai-appearance :is(select,input,textarea,button):focus-visible { outline: 1px solid var(--text-muted); outline-offset: 2px; }
+.qiaomu-reader-ai-appearance :is(select,input,textarea):disabled { color: var(--text-muted); opacity: .7; }
 .qiaomu-reader-ai-appearance .qiaomu-reader-ai-msg,
 .qiaomu-reader-ai-appearance .qiaomu-reader-ai-input { font-family: var(--qbr-ai-font); font-size: var(--qbr-ai-size); line-height: var(--qbr-ai-line-height); }
 .qiaomu-reader-ai-appearance .qiaomu-reader-ai-msg-ai :is(h1,h2,h3,h4,h5,h6) { font-family: var(--qbr-ai-font); }

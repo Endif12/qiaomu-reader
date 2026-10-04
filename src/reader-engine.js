@@ -2,6 +2,7 @@ import { HIGHLIGHT_PAINTS } from "./highlight-colors.js";
 import { createBookCover, isGeneratedBookCover } from "./book-cover.js";
 import { waitForEngineViewport } from "./engine-viewport.js";
 import { enginePositionModel } from "./reader-position.js";
+import { bindReaderPageKeys } from "./reader-keyboard.js";
 export { HIGHLIGHT_PAINTS } from "./highlight-colors.js";
 // Qiaomu Reader — e-book rendering engine.
 //
@@ -45,20 +46,8 @@ export function engineLayout(settings = {}, width = 0) {
     };
 }
 
-export function bindEngineKeys(doc, navigate, scrolled = () => false) {
-    const keydown = (event) => {
-        if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
-        const target = event.target;
-        if (target?.isContentEditable || target?.closest?.("input,textarea,select,[contenteditable=true]")) return;
-        if (scrolled() && ["ArrowUp", "ArrowDown", " "].includes(event.key)) return;
-        const direction = ["ArrowRight", "ArrowDown", " ", "PageDown"].includes(event.key) ? "next"
-            : ["ArrowLeft", "ArrowUp", "PageUp"].includes(event.key) ? "prev" : null;
-        if (!direction) return;
-        event.preventDefault();
-        navigate(direction);
-    };
-    doc.addEventListener("keydown", keydown);
-    return () => doc.removeEventListener("keydown", keydown);
+export function bindEngineKeys(doc, navigate) {
+    return bindReaderPageKeys(doc, navigate);
 }
 
 function disposeEngineView(view) {
@@ -109,6 +98,7 @@ export class EpubEngine {
     #resizeFrame = null;
     #keyCleanup = null;
     #openController = null;
+    #navigationQueue = Promise.resolve();
 
     constructor(container, hooks = {}) {
         this.#host = container;
@@ -145,7 +135,7 @@ export class EpubEngine {
             this.#keyCleanup = bindEngineKeys(doc, (direction) => {
                 if (this.#hooks.onNavigate) this.#hooks.onNavigate(direction);
                 else void this[direction]().catch(error => console.warn("Qiaomu Reader: page turn failed", error));
-            }, () => this.#layout.readMode === "scroll");
+            });
             if (this.#extraCss) this.#injectCss(doc, this.#extraCss);
             this.#hooks.onDocLoaded?.({ doc, index });
         });
@@ -204,6 +194,7 @@ export class EpubEngine {
     }
 
     destroy() {
+        this.#navigationQueue = Promise.resolve();
         this.#openController?.abort(); this.#openController = null;
         this.#searchGeneration++;
         this.#resizeObserver?.disconnect(); this.#resizeObserver = null;
@@ -249,8 +240,18 @@ export class EpubEngine {
     }
 
     // ── navigation ──────────────────────────────────────────────────────────
-    async next(distance) { await this.#view?.next(distance); }
-    async prev(distance) { await this.#view?.prev(distance); }
+    #turnPage(direction, distance) {
+        const view = this.#view;
+        const task = this.#navigationQueue.then(async () => {
+            if (view && this.#view === view) await view[direction](distance);
+        });
+        // A failed turn must not poison subsequent turns. Closing or replacing
+        // the book invalidates queued work through the captured view identity.
+        this.#navigationQueue = task.catch(() => {});
+        return task;
+    }
+    next(distance) { return this.#turnPage("next", distance); }
+    prev(distance) { return this.#turnPage("prev", distance); }
     async goTo(target) {
         const view = this.#view;
         const fail = () => new Error("Could not navigate to book location");
