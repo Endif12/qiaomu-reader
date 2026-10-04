@@ -1,4 +1,8 @@
 export const QIAOMU_READER_EN = {
+  "ai-appearance": "Companion appearance",
+  "ai-follow-book-appearance": "Match book appearance",
+  "ai-appearance-description": "Use the book’s font, size, spacing and background. Turn off to customize the companion separately.",
+
   "ai-connection-component-missing": "Install the {0} connection component, then check again. Run the command in Terminal.",
   "ai-recheck-installation": "Check after installing",
 

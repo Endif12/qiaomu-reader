@@ -1,6 +1,10 @@
 // Generated from the complete source UI dictionary and reviewed for core reading terms.
 // Keep placeholders, Markdown and HTML structure identical to the source strings.
 export const QIAOMU_READER_ZH_CN = {
+  "ai-appearance": "伴读外观",
+  "ai-follow-book-appearance": "跟随书籍外观",
+  "ai-appearance-description": "同步书籍的字体、字号、行距和背景。关闭后可单独调整伴读外观。",
+
   "ai-connection-component-missing": "需要安装 {0} 连接组件。在终端执行下面的命令，安装后重新检测。",
   "ai-recheck-installation": "安装后重新检测",
 

@@ -1,4 +1,8 @@
 export default {
+  "ai-appearance": "Darstellung der Lesehilfe",
+  "ai-follow-book-appearance": "Buchdarstellung übernehmen",
+  "ai-appearance-description": "Schrift, Größe, Zeilenabstand und Hintergrund des Buches verwenden. Für eigene Einstellungen ausschalten.",
+
   "ai-connection-component-missing": "Installiere die Verbindungskomponente {0}. Führe den Befehl im Terminal aus und prüfe erneut.",
   "ai-recheck-installation": "Nach Installation prüfen",
 

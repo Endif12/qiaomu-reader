@@ -1,4 +1,8 @@
 export default {
+  "ai-appearance": "Apparence du compagnon",
+  "ai-follow-book-appearance": "Suivre l’apparence du livre",
+  "ai-appearance-description": "Utiliser la police, la taille, l’interligne et le fond du livre. Désactiver pour personnaliser séparément.",
+
   "ai-connection-component-missing": "Installez le composant de connexion {0}. Exécutez la commande dans le terminal, puis vérifiez à nouveau.",
   "ai-recheck-installation": "Vérifier après installation",
 

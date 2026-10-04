@@ -1,4 +1,8 @@
 export default {
+  "ai-appearance": "독서 도우미 모양",
+  "ai-follow-book-appearance": "책 모양에 맞추기",
+  "ai-appearance-description": "책의 글꼴, 크기, 줄 간격과 배경을 사용합니다. 끄면 별도로 설정할 수 있습니다.",
+
   "ai-connection-component-missing": "{0} 연결 구성 요소가 필요합니다. 터미널에서 명령을 실행한 후 다시 확인하세요.",
   "ai-recheck-installation": "설치 후 다시 확인",
 

@@ -1,6 +1,10 @@
 // Russian locale pack. Inherited Russian UI strings keep their original wording;
 // strings that were originally Chinese source keys are translated to Russian here.
 export default {
+  "ai-appearance": "Оформление помощника",
+  "ai-follow-book-appearance": "Как в книге",
+  "ai-appearance-description": "Использовать шрифт, размер, интервал и фон книги. Отключите для отдельной настройки.",
+
   "ai-connection-component-missing": "Установите компонент подключения {0}. Выполните команду в терминале и проверьте снова.",
   "ai-recheck-installation": "Проверить после установки",
 

@@ -2,6 +2,7 @@ import { selectionActionPreferences } from "./selection-preferences.js";
 import { watchQuietUi } from "./quiet-ui.js";
 import { watchReaderStatusBar } from "./status-bar.js";
 import { protectBooksFromNoteDeletion } from "./book-deletion-guard.js";
+import { aiReadingAppearance, editableAiAppearance, setAiAppearanceFollowing } from "./ai-appearance.js";
 import { STARTER_BOOKS } from "./starter-book-data.js";
 import { createStarterLibraryInstaller, findStarterBook } from "./starter-library.js";
 import { isNonChineseSource } from "./ai-source-language.js";
@@ -146,6 +147,7 @@ const DEFAULT_READER_SESSION = {
   figuresShownByDefault: false, einkMode: false,
 };
 const DEFAULT_AI = {
+  aiAppearance: null,
   aiCompanionVisible: null,
   aiEnabled: false, aiNeedsVerification: false, aiProvider: "",
   // "auto" | "builtin" | "agent": who answers Ask AI when Qiaomu Agent is installed.
@@ -345,8 +347,7 @@ const ReaderFontPicker = class extends FuzzySuggestModal {
   }
   onChooseItem(font) { void this.choose(font); }
 };
-function buildCustomFontInput(host, plugin, apply) {
-  const settings = plugin.settings;
+function buildCustomFontInput(host, plugin, apply, settings = plugin.settings) {
   const wrap = host.createDiv("qiaomu-reader-custom-font");
   const actions = wrap.createDiv("qiaomu-reader-font-actions");
   const system = actions.createEl("button", { text: qiaomuReaderTranslate("choose-installed-font"), attr: { type: "button" } });
@@ -2199,11 +2200,16 @@ const QiaomuBookReader = class extends Plugin {
       await this._saveProgressToVault(); await this._saveLocalData();
     }
   }
+  _refreshAiAppearance(root) {
+    if (root) applyAiReadingAppearance(root, this);
+    else refreshAiReadingAppearance(this);
+  }
   async saveAll() {
     await this._saveLocalData();
     await this._saveProgressToVault();
   }
   _saveLocalData() {
+    this._refreshAiAppearance?.();
     captureDeviceProfile(this.settings);
     const snapshot = cloneJson({
       settings: this.settings,
@@ -5788,6 +5794,7 @@ function aiLogFollowsTail(log) {
 }
 
 function createAiChatLog(host, chat) {
+  chat.plugin._refreshAiAppearance?.(host);
   const wrap = host.createDiv("qiaomu-reader-ai-log-wrap");
   const log = wrap.createDiv("qiaomu-reader-ai-log");
   const jump = wrap.createEl("button", { cls: "qiaomu-reader-ai-jump-latest", text: qiaomuReaderTranslate("back-to-latest-reply") });
@@ -6251,6 +6258,7 @@ const AiChatHistoryModal = class extends Modal {
   onClose() { this.contentEl.empty(); }
 };
 function renderMobileAiHeader(contentEl, chat) {
+  chat.plugin._refreshAiAppearance?.(chat.modalEl || contentEl);
   const head = contentEl.createDiv("qiaomu-reader-ai-head");
   const headText = head.createDiv("qiaomu-reader-ai-headtext");
   headText.createDiv({ cls: "qiaomu-reader-ai-title", text: qiaomuReaderTranslate("talking-about-the-passage") });
@@ -6684,10 +6692,11 @@ const AiChatView = class extends ItemView {
     settings.setAttribute("aria-label", qiaomuReaderTranslate("ai-reading-settings"));
     settings.addEventListener("click", () => {
       if (this.readerView) new ReadSettingsModal(this.app, this.readerView, "ai").open();
-      else openPluginAiSettings(this.app, this.plugin);
+      else new ReadSettingsModal(this.app, { plugin: this.plugin, aiSettingsOnly: true }, "ai").open();
     });
   }
   _renderHead(c) {
+    this.plugin._refreshAiAppearance?.(c);
     const head = c.createDiv("qiaomu-reader-ai-head");
     const headText = head.createDiv("qiaomu-reader-ai-headtext");
     headText.createDiv({ cls: "qiaomu-reader-ai-title", text: qiaomuReaderTranslate("ai-reading") });
@@ -8446,6 +8455,91 @@ function suggestNoteTitle(text, max = 60) {
   cut = cut.replace(/\s+[a-zа-яё]{1,2}$/i, "");
   return cut.replace(/[.,;:!?…\-—\s]+$/, "");
 }
+function applyAiReadingAppearance(root, plugin) {
+  const settings = aiReadingAppearance(plugin.settings);
+  const theme = qiaomuReaderTheme(settings);
+  root.classList.add("qiaomu-reader-ai-appearance");
+  root.style.setProperty("--qbr-ai-font", resolveReaderFont(settings, FONTS));
+  root.style.setProperty("--qbr-ai-size", `${settings.fontSize}px`);
+  root.style.setProperty("--qbr-ai-line-height", String(settings.lineHeight));
+  const palette = {
+    "--background-primary": theme.bg, "--background-primary-alt": theme.ui,
+    "--background-secondary": theme.ui, "--background-secondary-alt": theme.ui,
+    "--background-modifier-border": theme.border, "--text-normal": theme.text,
+    "--text-muted": theme.muted, "--text-faint": theme.muted,
+    "--code-background": theme.ui, "--code-normal": theme.text,
+    "--interactive-accent": theme.text,
+  };
+  for (const [key, value] of Object.entries(palette)) {
+    if (settings.theme === "auto" && !settings.einkMode) root.style.removeProperty(key);
+    else root.style.setProperty(key, value);
+  }
+  void ensureSelectedReaderFont(docOf(root), plugin, settings);
+}
+function refreshAiReadingAppearance(plugin) {
+  const docs = new Set(plugin._quietUiDocuments?.keys() || []);
+  if (typeof document !== "undefined") docs.add(document);
+  for (const doc of docs) {
+    for (const root of doc.querySelectorAll(".qiaomu-reader-ai-appearance")) applyAiReadingAppearance(root, plugin);
+  }
+}
+function buildAiAppearanceSettings(host, plugin) {
+  const section = host.createDiv("qiaomu-reader-rs-card qiaomu-reader-ai-appearance-settings");
+  section.createDiv({ cls: "qiaomu-reader-rs-h", text: qiaomuReaderTranslate("ai-appearance") });
+  const preview = section.createDiv({ cls: "qiaomu-reader-rs-preview qiaomu-reader-ai-appearance-preview" });
+  preview.createDiv({ cls: "qiaomu-reader-ai-msg", text: qiaomuReaderTranslate("reading-is-not-about-remembering-everything-but-about-finding-id") });
+  const codePreview = preview.createEl("code");
+  const codeSample = "const note = await app.vault.read(file);";
+  codePreview.textContent = codeSample;
+  const repaint = () => applyAiReadingAppearance(preview, plugin);
+  repaint();
+  const controls = section.createDiv();
+  let revision = 0;
+  const change = async (mutate) => {
+    const previous = cloneJson(plugin.settings.aiAppearance);
+    const current = ++revision;
+    mutate(); repaint(); plugin._refreshAiAppearance?.();
+    if (await plugin._saveLocalData() === false && revision === current) {
+      plugin.settings.aiAppearance = previous;
+      repaint(); plugin._refreshAiAppearance?.(); draw();
+    }
+  };
+  const draw = () => {
+    controls.empty();
+    new Setting(controls).setName(qiaomuReaderTranslate("ai-follow-book-appearance"))
+      .setDesc(qiaomuReaderTranslate("ai-appearance-description"))
+      .addToggle(toggle => toggle.setValue(!plugin.settings.aiAppearance).onChange(async follow => {
+        await change(() => setAiAppearanceFollowing(plugin.settings, follow)); draw();
+      }));
+    if (!plugin.settings.aiAppearance) return;
+    const settings = editableAiAppearance(plugin.settings);
+    controls.createDiv({ cls: "qiaomu-reader-pan-sec", text: qiaomuReaderTranslate("theme") });
+    const themes = controls.createDiv("qiaomu-reader-col-row qiaomu-reader-rs-seg");
+    for (const id of READER_THEME_CHOICES) {
+      const button = themes.createEl("button", { cls: "qiaomu-reader-col-btn", text: readerThemeLabel(id), attr: { type: "button", "aria-pressed": String(selectedReaderTheme(settings) === id) } });
+      paintReaderThemeChoice(button, id);
+      button.toggleClass("active", selectedReaderTheme(settings) === id);
+      button.addEventListener("click", async () => {
+        await change(() => setReaderTheme(settings, id));
+        for (const item of themes.children) { const selected = item === button; item.classList.toggle("active", selected); item.setAttribute("aria-pressed", String(selected)); }
+      });
+    }
+    new Setting(controls).setName(qiaomuReaderTranslate("font")).addDropdown(dropdown => {
+      for (const font of qiaomuReaderReaderFonts()) dropdown.addOption(font.id, qiaomuReaderFontLabel(font));
+      dropdown.setValue(settings.fontFamily).onChange(async id => {
+        await change(() => { settings.fontFamily = id; }); refreshCustom();
+      });
+    });
+    const refreshCustom = buildCustomFontInput(controls, plugin, async () => { repaint(); plugin._refreshAiAppearance?.(); }, settings);
+    new Setting(controls).setName(qiaomuReaderTranslate("font-size"))
+      .addSlider(slider => withSliderValue(slider.setLimits(12, 32, 1).setValue(settings.fontSize || 18))
+        .onChange(value => change(() => { settings.fontSize = value; })));
+    new Setting(controls).setName(qiaomuReaderTranslate("line-spacing"))
+      .addSlider(slider => withSliderValue(slider.setLimits(1.4, 2.2, 0.05).setValue(settings.lineHeight || 1.8), 2)
+        .onChange(value => change(() => { settings.lineHeight = Math.round(value * 20) / 20; })));
+  };
+  draw();
+}
 function bindSettingsTabKeys(tablist) {
   tablist.addEventListener("keydown", event => {
     const tabs = [...tablist.querySelectorAll('[role="tab"]')];
@@ -8608,6 +8702,7 @@ const ReadSettingsModal = class extends Modal {
 
     }
 
+    buildAiAppearanceSettings(c, plugin);
     const privacy = c.createDiv("qiaomu-reader-rs-ai-privacy");
     svgIcon(privacy.createSpan({ cls: "qiaomu-reader-rs-ai-privacy-icon" }), "shield-check");
     privacy.createSpan({ text: qiaomuReaderTranslate("regular-reading-stays-offline-the-selected-passage-book-title-an") });
@@ -8624,7 +8719,7 @@ const ReadSettingsModal = class extends Modal {
     head.createDiv("qiaomu-reader-rs-title").setText(qiaomuReaderTranslate("reading-settings"));
     const tabs = c.createDiv("qiaomu-reader-rs-tabs");
     tabs.setAttribute("role", "tablist");
-    [["reading", qiaomuReaderTranslate("text-and-background")], ["layout", qiaomuReaderTranslate("turning-and-layout")], ["ai", qiaomuReaderTranslate("ai-reading")]].forEach(([id, label]) => {
+    [["reading", qiaomuReaderTranslate("text-and-background")], ["layout", qiaomuReaderTranslate("turning-and-layout")], ["ai", qiaomuReaderTranslate("ai-reading")]].filter(([id]) => !this.view.aiSettingsOnly || id === "ai").forEach(([id, label]) => {
       const button = tabs.createEl("button", { cls: "qiaomu-reader-rs-tab", text: label });
       button.type = "button";
       button.setAttribute("role", "tab");
@@ -13501,7 +13596,10 @@ const SettingsTab = class extends PluginSettingTab {
     c.addClass("qiaomu-reader-ai-setup");
     if (plugin.qiaomuAgentAvailable?.()) this._aiAssistantRow(c, s);
     this._aiProviderRow(c, s, redraw);
-    if (!cfg.provider) return;
+    if (!cfg.provider) {
+      if (!options.enableOnSuccess) buildAiAppearanceSettings(c, plugin);
+      return;
+    }
     const p = cfg.provider;
     this._aiModelPicker(c, s, p, redraw);
     const needsSecret = p.transport !== "cli" && p.needsKey && !cfg.key;
@@ -13533,6 +13631,7 @@ const SettingsTab = class extends PluginSettingTab {
     this._aiTestRow(connection, p, options);
     const behavior = this._settingsDisclosure(advanced, "ai-response-preferences");
     this._aiTailRows(behavior, s, p, cfg);
+    if (!options.enableOnSuccess) buildAiAppearanceSettings(c, plugin);
   }
   _aiCliSetupHelp(host, s, redraw, options) {
     if (!Platform.isDesktopApp) return;

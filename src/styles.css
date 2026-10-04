@@ -1005,6 +1005,18 @@ img.qiaomu-reader-pdf-lazy:not([data-loaded="1"]) { background:color-mix(in srgb
 @media (max-width: 380px) { :root { --qiaomu-reader-pad: 12px; --qiaomu-reader-gap: 8px; } }
 @media (min-width: 900px) { :root { --qiaomu-reader-pad: 20px; } }
 
+/* Companion appearance: only conversation text changes font and size. */
+.qiaomu-reader-ai-appearance { background: var(--background-primary); color: var(--text-normal); }
+.qiaomu-reader-ai-appearance .qiaomu-reader-ai-msg,
+.qiaomu-reader-ai-appearance .qiaomu-reader-ai-input { font-family: var(--qbr-ai-font); font-size: var(--qbr-ai-size); line-height: var(--qbr-ai-line-height); }
+.qiaomu-reader-ai-appearance .qiaomu-reader-ai-msg-ai :is(h1,h2,h3,h4,h5,h6) { font-family: var(--qbr-ai-font); }
+.qiaomu-reader-ai-appearance-preview code { font-family: var(--font-monospace); font-size: 13px; background: var(--code-background); color: var(--code-normal); }
+.qiaomu-reader-ai-appearance-preview .qiaomu-reader-ai-msg { max-width: 100%; padding: 0; animation: none; }
+.qiaomu-reader-ai-appearance-settings { margin-top: 16px; --interactive-accent: var(--text-normal); --interactive-accent-hover: var(--text-normal); }
+.qiaomu-reader-ai-appearance-settings .qiaomu-reader-rs-seg { flex-wrap: wrap; gap: 8px; }
+.qiaomu-reader-ai-appearance-settings .qiaomu-reader-col-btn { height: auto; padding: 8px 10px; box-shadow: none; font-size: 13px; }
+.qiaomu-reader-ai-appearance-settings .qiaomu-reader-col-btn.active { outline: 1px solid var(--text-normal); outline-offset: 2px; }
+.qiaomu-reader-ai-appearance-settings .qiaomu-reader-col-btn:focus-visible { outline: 2px solid var(--text-normal); outline-offset: 3px; }
 /* ── AI assistant: modal shell and header ────────────────────────────────── */
 .modal.qiaomu-reader-ai-modal { width: min(100%, 680px); max-width: 100%; min-width: 0; --modal-background: var(--background-primary); background: var(--background-primary); -webkit-backdrop-filter: none; backdrop-filter: none; }
 .modal.qiaomu-reader-ai-modal > .modal-close-button { display:none; }

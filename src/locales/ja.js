@@ -1,4 +1,8 @@
 export default {
+  "ai-appearance": "伴読の外観",
+  "ai-follow-book-appearance": "書籍の外観に合わせる",
+  "ai-appearance-description": "書籍のフォント、サイズ、行間、背景を使用します。オフにすると個別に設定できます。",
+
   "ai-connection-component-missing": "{0} 接続コンポーネントをインストールしてください。ターミナルで次のコマンドを実行し、再確認してください。",
   "ai-recheck-installation": "インストール後に再確認",
 

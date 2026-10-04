@@ -1,4 +1,8 @@
 export default {
+  "ai-appearance": "Aparência do assistente",
+  "ai-follow-book-appearance": "Usar aparência do livro",
+  "ai-appearance-description": "Usar a fonte, o tamanho, o espaçamento e o fundo do livro. Desative para personalizar separadamente.",
+
   "ai-connection-component-missing": "Instale o componente de conexão {0}. Execute o comando no terminal e verifique novamente.",
   "ai-recheck-installation": "Verificar após instalar",
 
