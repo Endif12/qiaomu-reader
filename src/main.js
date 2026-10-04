@@ -110,7 +110,7 @@ const DEFAULT_SHELF = {
 const DEFAULT_APPEARANCE = {
   theme: "auto", libTheme: "auto", fontSize: 18, fontFamily: "zhuque",
   customFontFamily: "", customFontId: "", importedFonts: [],
-  pageButtonsVisibility: "hover", lineHeight: 1.8, columns: "2",
+  pageButtonsVisibility: "hover", lineHeight: 1.8, columns: "1",
   textAlign: "left", vAlign: "top",
 };
 const DEFAULT_TRANSLATION = {
@@ -8759,7 +8759,7 @@ const ReadSettingsModal = class extends Modal {
       colB,
       qiaomuReaderTranslate("pages-side-by-side"),
       [["1", qiaomuReaderTranslate("one")], ["2", qiaomuReaderTranslate("two")]],
-      () => String(settings.columns || "2"),
+      () => String(settings.columns || "1"),
       async (count) => {
         settings.columns = count; await this._apply(true);
       },
@@ -13453,7 +13453,7 @@ const SettingsTab = class extends PluginSettingTab {
 
     if (s.readMode !== "scroll") this._readingDropdown(c,
       "pages-side-by-side", "two-pages-are-shown-only-on-a-wide-screen",
-      [["1", t("one")], ["2", t("two")]], String(s.columns || "2"),
+      [["1", t("one")], ["2", t("two")]], String(s.columns || "1"),
       async value => { s.columns = value; await this.plugin.saveAll(); this._repaginateOpenBooks(); });
     buildPageButtonsSetting(c, this.plugin);
     this._selectionToolbarSettings(this._settingsDisclosure(c, "selection-toolbar"));

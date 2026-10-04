@@ -200,6 +200,8 @@ test("engine searches createDocument sections, returns readable excerpts and can
 test("layout supports explicit one/two columns, narrow panes and scroll mode; iframe keys respect editing", async () => {
   const dom = new JSDOM('<body><input><p tabindex="0">text</p></body>', { runScripts: "outside-only" });
   const { engineLayout, bindEngineKeys } = evaluate(dom, await bundle(foliateElements(root)));
+  assert.equal(engineLayout({}, 1200)["max-column-count"], "1");
+  assert.equal(engineLayout({ columns: "invalid" }, 1200)["max-column-count"], "1");
   assert.equal(engineLayout({ columns: "1" }, 1200)["max-column-count"], "1");
   assert.equal(engineLayout({ columns: "2" }, 1200)["max-column-count"], "2");
   assert.equal(engineLayout({ columns: "2" }, 700)["max-column-count"], "1");

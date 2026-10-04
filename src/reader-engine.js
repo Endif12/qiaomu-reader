@@ -37,7 +37,7 @@ export const SEARCH_PREFIX = "foliate-search:";
 const VIEW_TAG = typeof __QBR_ENGINE_VIEW_TAG__ === "string" ? __QBR_ENGINE_VIEW_TAG__ : "foliate-view";
 
 export function engineLayout(settings = {}, width = 0) {
-    const columns = settings.columns === "1" || width <= 700 ? 1 : 2;
+    const columns = settings.columns === "2" && width > 700 ? 2 : 1;
     return {
         flow: settings.readMode === "scroll" ? "scrolled" : "paginated",
         "max-column-count": String(columns),
