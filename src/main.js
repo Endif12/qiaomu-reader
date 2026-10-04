@@ -23,6 +23,7 @@ const BOOK_EXTENSIONS = new Set([...ENGINE_EXTENSIONS, "pdf"]);
 // makes every page render fail. The supported legacy browser build includes the
 // required compatibility layer while exposing the same API.
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import { unpackPdfWorker } from "./pdf-worker.js";
 import { AI_PROVIDER_CATEGORIES, AI_PROVIDERS, aiProviderFor, buildAiRequestBody, buildAiRequestOptions, classifyAiHttpStatus, normalizeAiBase } from "./ai-providers.js";
 import { createOpenAiSseParser } from "./ai-stream.js";
 import { composeAiAnswerNote } from "./ai-note.js";
@@ -1473,23 +1474,29 @@ function openImageLightbox(srcUrl, app, ownerEl) {
   window.requestAnimationFrame(() => layer.classList.add("qiaomu-reader-lightbox-on"));
 }
 let workerReady = false;
+let workerPreparing = null;
 async function setupWorker(app) {
   if (workerReady)
     return;
-  try {
-    const code = __PDF_WORKER_CODE__;
-    if (!code) throw new Error("embedded pdf.worker is empty");
-    pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
-      new Blob([code], { type: "application/javascript" })
-    );
-    workerReady = true;
-    return;
-  } catch (e) {
-    console.error("Qiaomu Reader: could not start the embedded pdf.worker", e);
-    new Notice(qiaomuReaderTranslate("could-not-prepare-pdf-reading-please-reinstall-the-plugin"));
-  }
-  workerReady = true;
+  if (workerPreparing) return workerPreparing;
+  workerPreparing = (async () => {
+    try {
+      const code = await unpackPdfWorker(__PDF_WORKER_ARCHIVE__);
+      pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
+        new Blob([code], { type: "application/javascript" })
+      );
+      workerReady = true;
+    } catch (e) {
+      console.error("Qiaomu Reader: could not start the embedded pdf.worker", e);
+      new Notice(qiaomuReaderTranslate("could-not-prepare-pdf-reading-please-reinstall-the-plugin"));
+      throw e;
+    } finally {
+      workerPreparing = null;
+    }
+  })();
+  return workerPreparing;
 }
+
 const QiaomuBookReader = class extends Plugin {
   constructor() {
     super(...arguments);
