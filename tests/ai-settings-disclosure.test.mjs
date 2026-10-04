@@ -58,7 +58,7 @@ test("CLI setup exposes choices and keeps paths, tests, effort and prompts folde
   const { host } = setup("codex-cli");
   assert.equal(host.querySelectorAll(":scope > .setting-item select").length, 2);
   for (const name of ["_aiCliRows", "_aiEffortRow", "_aiTailRows"]) assert.ok(folded(host.querySelector(`.${name}`)));
-  assert.equal(folded(host.querySelector("._aiTestRow")), false);
+  assert.equal(folded(host.querySelector("._aiTestRow")), true);
   assert.equal(host.querySelectorAll("details[open]").length, 0);
 });
 
@@ -103,23 +103,19 @@ test("choosing a model saves per provider and requires a fresh connection check"
 });
 
 const settle = () => new Promise(resolve => setImmediate(resolve));
-test("missing Codex adapter exposes install command and recovery without unfolding advanced settings", async () => {
-  let copied, verified = 0;
+test("missing adapter folds installation commands and provides no competing start button", async () => {
+  let copied;
   const x = setup("codex-cli", "", "", {
     resolveAcpPath: async () => "",
     copyToClipboard: async text => { copied = text; return true; },
-    testAndEnableAi: async () => { verified++; return {}; },
   });
   await settle();
   const help = x.host.querySelector(".qiaomu-reader-ai-install-help");
   assert.equal(help.hidden, false);
-  assert.equal(folded(help), false);
-  assert.equal(help.querySelector("code").textContent, "npm install -g @agentclientprotocol/codex-acp");
-  help.querySelectorAll("button")[0].click(); await settle();
-  assert.equal(copied, help.querySelector("code").textContent);
-  help.querySelectorAll("button")[1].click(); await settle();
-  assert.equal(verified, 1);
-  assert.equal(x.counts().redrawn, 1);
+  assert.equal(folded(help.querySelector("code")), true);
+  assert.equal(help.querySelectorAll("button").length, 2);
+  help.querySelector("button").click(); await settle();
+  assert.equal(copied, "npm install -g @agentclientprotocol/codex-acp");
 });
 test("dependency discovery does not enable AI or send a prompt, and ignores stale provider results", async () => {
   let release, prompts = 0;
@@ -134,19 +130,6 @@ test("dependency discovery does not enable AI or send a prompt, and ignores stal
   assert.equal(prompts, 0);
   assert.equal(x.settings.aiEnabled, undefined);
 });
-test("failed retry stays actionable and never announces a connection", async () => {
-  const x = setup("codex-cli", "", "", {
-    resolveAcpPath: async () => "",
-    testAndEnableAi: async () => { throw new Error("Sign in first"); },
-  });
-  await settle();
-  const help = x.host.querySelector(".qiaomu-reader-ai-install-help");
-  const retry = help.querySelectorAll("button")[1]; retry.click(); await settle();
-  assert.equal(retry.disabled, false);
-  assert.equal(help.getAttribute("role"), "alert");
-  assert.equal(help.firstElementChild.textContent, "Sign in first");
-  assert.equal(x.counts().redrawn, 0);
-});
 test("already installed components keep installation instructions hidden", async () => {
   const x = setup("codex-cli"); await settle();
   assert.equal(x.host.querySelector(".qiaomu-reader-ai-install-help").hidden, true);
@@ -156,17 +139,6 @@ test("missing Codex CLI gives installation and login steps before adapter setup"
   assert.match(x.host.querySelector(".qiaomu-reader-ai-install-help code").textContent, /@openai\/codex\ncodex login/);
 });
 
-test("installing CLI first then discovering a missing adapter advances to the adapter command", async () => {
-  const x = setup("codex-cli", "", "", {
-    resolveCliPath: async () => "",
-    testAndEnableAi: async () => { throw Object.assign(new Error("missing adapter"), { qiaomuReaderReason: "acpmissing" }); },
-  });
-  await settle();
-  const help = x.host.querySelector(".qiaomu-reader-ai-install-help");
-  help.querySelectorAll("button")[1].click(); await settle();
-  assert.equal(help.querySelector("code").textContent, "npm install -g @agentclientprotocol/codex-acp");
-  assert.equal(help.querySelectorAll("button")[1].disabled, false);
-});
 test("switching provider during a live connection test cannot enable the new provider", async () => {
   const code = source.slice(source.indexOf("async function testAndEnableAi("), source.indexOf("function openPluginAiSettings("));
   let finish;

@@ -6724,7 +6724,7 @@ const AiChatView = class extends ItemView {
         } catch (error) {
           const feedback = form.querySelector(".qiaomu-reader-ai-setup-feedback");
           if (feedback) { feedback.setAttribute("role", "alert"); feedback.setText(aiConnectionErrorMessage(error)); }
-          for (const details of form.querySelectorAll("details[data-ai-advanced], details[data-ai-connection]")) details.open = true;
+
         } finally { start.disabled = false; start.setText(qiaomuReaderTranslate("ai-start-using")); }
       });
     };
@@ -13522,7 +13522,7 @@ const SettingsTab = class extends PluginSettingTab {
       if (p.needsKey && !needsSecret) this._aiSecretRow(connection, s, p);
       if (cfg.id !== "custom") this._aiBaseRow(connection, s, p);
     }
-    this._aiTestRow(p.transport === "cli" ? c : connection, p, options);
+    this._aiTestRow(connection, p, options);
     const behavior = this._settingsDisclosure(advanced, "ai-response-preferences");
     this._aiTailRows(behavior, s, p, cfg);
   }
@@ -13540,37 +13540,17 @@ const SettingsTab = class extends PluginSettingTab {
     const show = (message, command = "") => {
       help.empty();
       help.hidden = false;
-      help.createDiv({ text: message });
+      const steps = this._settingsDisclosure(help, "ai-install-help");
+      steps.createDiv({ text: message });
       if (command) {
-        help.createEl("code", { text: command });
-        const copy = help.createEl("button", { text: qiaomuReaderTranslate("copy-command"), attr: { type: "button" } });
+        steps.createEl("code", { text: command });
+        const copy = steps.createEl("button", { text: qiaomuReaderTranslate("copy-command"), attr: { type: "button" } });
         copy.addEventListener("click", async () => {
           const ok = await copyToClipboard(command);
           if (current()) new Notice(qiaomuReaderTranslate(ok ? "install-command-copied" : "copy-failed-copy-the-command-manually"));
         });
       }
-      const retry = help.createEl("button", { text: qiaomuReaderTranslate("ai-recheck-installation"), attr: { type: "button" } });
-      retry.addEventListener("click", async () => {
-        if (!current()) return;
-        retry.disabled = true;
-        try {
-          const result = await testAndEnableAi(this.plugin, text => { if (current()) retry.textContent = text; });
-          if (!current()) return;
-          if (typeof options.onReady === "function") options.onReady(result);
-          else redraw();
-        } catch (error) {
-          if (!current()) return;
-          if (error?.qiaomuReaderReason === "acpmissing") {
-            show(qiaomuReaderTranslate("ai-connection-component-missing", acp.label), acp.installCommand);
-            return;
-          }
-          help.setAttribute("role", "alert");
-          help.firstElementChild.textContent = aiConnectionErrorMessage(error);
-          retry.disabled = false;
-          retry.textContent = qiaomuReaderTranslate("ai-recheck-installation");
-        }
-      });
-      const docs = help.createEl("button", { text: qiaomuReaderTranslate("view-install-docs"), attr: { type: "button" } });
+      const docs = steps.createEl("button", { text: qiaomuReaderTranslate("view-install-docs"), attr: { type: "button" } });
       docs.addEventListener("click", () => window.open(acp.installUrl, "_blank"));
     };
     // Discovery checks local executables only; it never installs or sends book content.
