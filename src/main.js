@@ -212,6 +212,10 @@ const THEMES = READER_THEMES;
 function readerThemeLabel(id) {
   return qiaomuReaderTranslate((THEMES[id] && THEMES[id].label) || id);
 }
+function paintReaderThemeChoice(button, id) {
+  const theme = THEMES[id] || THEMES.auto;
+  button.setCssProps({ "--qiaomu-reader-choice-bg": theme.bg, "--qiaomu-reader-choice-text": theme.text, "--qiaomu-reader-choice-border": theme.border });
+}
 function selectedReaderTheme(settings) {
   return migrateReaderTheme(settings.theme);
 }
@@ -1287,7 +1291,8 @@ function readerSettThemeRow(host, view, onApplied) {
   const row = host.createDiv("qiaomu-reader-theme-row");
   const clearActive = () => row.querySelectorAll(".qiaomu-reader-theme-btn").forEach((b) => b.removeClass("active"));
   for (const t of READER_THEME_CHOICES) {
-    const opt = row.createDiv(`qiaomu-reader-theme-btn qiaomu-reader-theme-${t}`);
+    const opt = row.createEl("button", { cls: `qiaomu-reader-theme-btn qiaomu-reader-theme-${t}`, attr: { type: "button" } });
+    paintReaderThemeChoice(opt, t);
     opt.setText(readerThemeLabel(t));
     if (selectedReaderTheme(view.plugin.settings) === t) opt.addClass("active");
     opt.addEventListener("click", async () => {
@@ -8666,7 +8671,7 @@ const ReadSettingsModal = class extends Modal {
   }
   _themeCard(body, settings) {
     const card = body.createDiv("qiaomu-reader-rs-card qiaomu-reader-rs-theme-card");
-    this._seg(
+    const row = this._seg(
       card,
       qiaomuReaderTranslate("theme"),
       READER_THEME_CHOICES.map((id) => [id, readerThemeLabel(id)]),
@@ -8675,6 +8680,7 @@ const ReadSettingsModal = class extends Modal {
         setReaderTheme(settings, theme); await this._apply(false);
       }
     );
+    [...row.children].forEach((button, index) => paintReaderThemeChoice(button, READER_THEME_CHOICES[index]));
   }
   _fillTypography(colA, view, settings) {
     colA.createDiv("qiaomu-reader-rs-h").setText(qiaomuReaderTranslate("text-and-font"));
@@ -10932,7 +10938,7 @@ const ReaderView = class extends ItemView {
     const t = qiaomuReaderTheme(this.plugin.settings);
     const s = this.plugin.settings;
     const r = this.contentEl;
-    r.toggleClass("qiaomu-reader-night", s.theme === "night" && !s.einkMode);
+    r.toggleClass("qiaomu-reader-night", !!t.dark && !s.einkMode);
     r.style.setProperty("--qiaomu-reader-bg", t.bg);
     r.style.setProperty("--qiaomu-reader-text", t.text);
     r.style.setProperty("--qiaomu-reader-ui", t.ui);
@@ -12364,7 +12370,7 @@ const ReaderModal = class extends Modal {
     syncPageButtons(this);
     const t = qiaomuReaderTheme(this.plugin.settings);
     const m = this.modalEl;
-    m.toggleClass("qiaomu-reader-night", this.plugin.settings.theme === "night" && !this.plugin.settings.einkMode);
+    m.toggleClass("qiaomu-reader-night", !!t.dark && !this.plugin.settings.einkMode);
     m.style.setProperty("--qiaomu-reader-bg", t.bg);
     m.style.setProperty("--qiaomu-reader-text", t.text);
     m.style.setProperty("--qiaomu-reader-ui", t.ui);
