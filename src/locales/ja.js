@@ -1,4 +1,7 @@
 export default {
+  "ai-connection-component-missing": "{0} 接続コンポーネントをインストールしてください。ターミナルで次のコマンドを実行し、再確認してください。",
+  "ai-recheck-installation": "インストール後に再確認",
+
   "message-or-drop-epub": "メッセージを入力、またはEPUBをドロップ",
   "epub-attachment-loading": "『{0}』を読み込み中…",
   "epub-attachment-full": "EPUB全体",

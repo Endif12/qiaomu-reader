@@ -1,4 +1,7 @@
 export default {
+  "ai-connection-component-missing": "{0} 연결 구성 요소가 필요합니다. 터미널에서 명령을 실행한 후 다시 확인하세요.",
+  "ai-recheck-installation": "설치 후 다시 확인",
+
   "message-or-drop-epub": "메시지 입력 또는 EPUB 끌어놓기",
   "epub-attachment-loading": "{0} 읽는 중…",
   "epub-attachment-full": "EPUB 전체",

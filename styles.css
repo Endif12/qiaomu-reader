@@ -1651,6 +1651,12 @@ button.qiaomu-reader-find-item.qiaomu-reader-toc-active { background: var(--back
 /* Per-window state follows workspace events and is removed on plugin unload. */
 body.qiaomu-reader-active-view .status-bar { display: none; }
 
+/* Show installation recovery only when a local AI dependency is missing. */
+.qiaomu-reader-ai-install-help[hidden] { display:none; }
+.qiaomu-reader-ai-install-help { margin:8px 0; padding:12px; border-radius:10px; background:var(--background-secondary); color:var(--text-normal); font-size:var(--font-ui-small); line-height:1.6; }
+.qiaomu-reader-ai-install-help code { display:block; margin:8px 0; white-space:pre-wrap; overflow-wrap:anywhere; user-select:text; }
+.qiaomu-reader-ai-install-help button { margin:8px 8px 0 0; white-space:normal; height:auto; min-height:32px; }
+
 /* Bundled reading subset: SIL OFL 1.1
 Copyright (c) 2023, Zhejiang JadeFoci Techonology Co. LTD
 (https://www.jadefoci.com/)

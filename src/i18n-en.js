@@ -1,4 +1,7 @@
 export const QIAOMU_READER_EN = {
+  "ai-connection-component-missing": "Install the {0} connection component, then check again. Run the command in Terminal.",
+  "ai-recheck-installation": "Check after installing",
+
   "message-or-drop-epub": "Message, or drop an EPUB",
   "epub-attachment-loading": "Reading {0}…",
   "epub-attachment-full": "Whole EPUB",

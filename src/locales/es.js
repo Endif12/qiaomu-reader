@@ -1,4 +1,7 @@
 export default {
+  "ai-connection-component-missing": "Instala el componente de conexión {0}. Ejecuta el comando en la terminal y vuelve a comprobar.",
+  "ai-recheck-installation": "Comprobar tras instalar",
+
   "message-or-drop-epub": "Mensaje o arrastra un EPUB",
   "epub-attachment-loading": "Leyendo {0}…",
   "epub-attachment-full": "EPUB completo",
