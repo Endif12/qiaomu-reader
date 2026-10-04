@@ -1,6 +1,9 @@
 // Russian locale pack. Inherited Russian UI strings keep their original wording;
 // strings that were originally Chinese source keys are translated to Russian here.
 export default {
+  "ai-connection-component-missing": "Установите компонент подключения {0}. Выполните команду в терминале и проверьте снова.",
+  "ai-recheck-installation": "Проверить после установки",
+
   "message-or-drop-epub": "Сообщение или перетащите EPUB",
   "epub-attachment-loading": "Чтение «{0}»…",
   "epub-attachment-full": "Весь EPUB",

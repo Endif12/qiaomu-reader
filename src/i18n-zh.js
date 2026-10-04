@@ -1,6 +1,9 @@
 // Generated from the complete source UI dictionary and reviewed for core reading terms.
 // Keep placeholders, Markdown and HTML structure identical to the source strings.
 export const QIAOMU_READER_ZH_CN = {
+  "ai-connection-component-missing": "需要安装 {0} 连接组件。在终端执行下面的命令，安装后重新检测。",
+  "ai-recheck-installation": "安装后重新检测",
+
   "message-or-drop-epub": "输入消息，或拖入 EPUB",
   "epub-attachment-loading": "正在读取《{0}》…",
   "epub-attachment-full": "整本 EPUB",

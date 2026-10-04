@@ -1623,7 +1623,7 @@ button.qiaomu-reader-find-item.qiaomu-reader-toc-active { background: var(--back
 
 .qiaomu-reader-ai-attachment-status { display:flex; align-items:center; gap:8px; padding:6px 0; font-size:var(--font-ui-small); color:var(--text-muted); }
 .qiaomu-reader-ai-attachment-status[hidden] { display:none; }
-.qiaomu-reader-sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.qiaomu-reader-sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
 
 .qiaomu-reader-note-folder-field { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:6px; }
 .qiaomu-reader-note-folder-field .qiaomu-reader-setup-label { grid-column:1 / -1; }
@@ -1650,6 +1650,12 @@ button.qiaomu-reader-find-item.qiaomu-reader-toc-active { background: var(--back
 
 /* Per-window state follows workspace events and is removed on plugin unload. */
 body.qiaomu-reader-active-view .status-bar { display: none; }
+
+/* Show installation recovery only when a local AI dependency is missing. */
+.qiaomu-reader-ai-install-help[hidden] { display:none; }
+.qiaomu-reader-ai-install-help { margin:8px 0; padding:12px; border-radius:10px; background:var(--background-secondary); color:var(--text-normal); font-size:var(--font-ui-small); line-height:1.6; }
+.qiaomu-reader-ai-install-help code { display:block; margin:8px 0; white-space:pre-wrap; overflow-wrap:anywhere; user-select:text; }
+.qiaomu-reader-ai-install-help button { margin:8px 8px 0 0; white-space:normal; height:auto; min-height:32px; }
 
 /* Bundled reading subset: SIL OFL 1.1
 Copyright (c) 2023, Zhejiang JadeFoci Techonology Co. LTD

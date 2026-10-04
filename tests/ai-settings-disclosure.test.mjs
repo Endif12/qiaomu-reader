@@ -3,9 +3,10 @@ import fs from "node:fs";
 import vm from "node:vm";
 import test from "node:test";
 import { JSDOM } from "jsdom";
+import { cliMeta, cliAcpSupport } from "../src/ai-cli.js";
 import { AI_PROVIDERS, AI_PROVIDER_CATEGORIES } from "../src/ai-providers.js";
 const source = fs.readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
-function setup(provider, model = "", key = "") {
+function setup(provider, model = "", key = "", tools = {}) {
   const { window } = new JSDOM("<main></main>"), { document, HTMLElement } = window;
   HTMLElement.prototype.addClass = function (...names) { this.classList.add(...names); };
   HTMLElement.prototype.removeClass = function (...names) { this.classList.remove(...names); };
@@ -35,7 +36,13 @@ function setup(provider, model = "", key = "") {
   const code = source.slice(source.indexOf("const SettingsTab = class"), source.indexOf("export default QiaomuBookReader"));
   const Tab = vm.runInNewContext(`${code}; SettingsTab`, { PluginSettingTab: class {}, Setting, window, AI_PROVIDERS, AI_PROVIDER_CATEGORIES, Platform: { isDesktopApp: true }, setIcon() {}, qiaomuReaderTranslate: key => key,
     aiConfig: p => ({ id: p.settings.aiProvider, provider: AI_PROVIDERS[p.settings.aiProvider], key }),
-    aiSetupState: () => ({ enabled: false }),
+    aiSetupState: () => ({ enabled: false }), cliMeta, cliAcpSupport,
+    resolveCliPath: tools.resolveCliPath || (async () => "/usr/bin/codex"),
+    resolveAcpPath: tools.resolveAcpPath || (async () => "/usr/bin/codex-acp"),
+    copyToClipboard: tools.copyToClipboard || (async () => true), Notice: class {},
+    testAndEnableAi: tools.testAndEnableAi || (async () => ({})),
+    aiConnectionErrorMessage: e => e.message,
+
   });
   const settings = { aiProvider: provider, aiModel: model, aiModels: {}, aiSecrets: {}, aiBases: {} };
   let saved = 0, redrawn = 0;
@@ -50,7 +57,8 @@ const folded = el => !!el.closest("details:not([open])");
 test("CLI setup exposes choices and keeps paths, tests, effort and prompts folded", () => {
   const { host } = setup("codex-cli");
   assert.equal(host.querySelectorAll(":scope > .setting-item select").length, 2);
-  for (const name of ["_aiCliRows", "_aiEffortRow", "_aiTestRow", "_aiTailRows"]) assert.ok(folded(host.querySelector(`.${name}`)));
+  for (const name of ["_aiCliRows", "_aiEffortRow", "_aiTailRows"]) assert.ok(folded(host.querySelector(`.${name}`)));
+  assert.equal(folded(host.querySelector("._aiTestRow")), false);
   assert.equal(host.querySelectorAll("details[open]").length, 0);
 });
 
@@ -92,4 +100,84 @@ test("choosing a model saves per provider and requires a fresh connection check"
   assert.equal(x.settings.aiEnabled, false);
   assert.equal(x.settings.aiNeedsVerification, true);
   assert.deepEqual(x.counts(), { saved: 1, redrawn: 1 });
+});
+
+const settle = () => new Promise(resolve => setImmediate(resolve));
+test("missing Codex adapter exposes install command and recovery without unfolding advanced settings", async () => {
+  let copied, verified = 0;
+  const x = setup("codex-cli", "", "", {
+    resolveAcpPath: async () => "",
+    copyToClipboard: async text => { copied = text; return true; },
+    testAndEnableAi: async () => { verified++; return {}; },
+  });
+  await settle();
+  const help = x.host.querySelector(".qiaomu-reader-ai-install-help");
+  assert.equal(help.hidden, false);
+  assert.equal(folded(help), false);
+  assert.equal(help.querySelector("code").textContent, "npm install -g @agentclientprotocol/codex-acp");
+  help.querySelectorAll("button")[0].click(); await settle();
+  assert.equal(copied, help.querySelector("code").textContent);
+  help.querySelectorAll("button")[1].click(); await settle();
+  assert.equal(verified, 1);
+  assert.equal(x.counts().redrawn, 1);
+});
+test("dependency discovery does not enable AI or send a prompt, and ignores stale provider results", async () => {
+  let release, prompts = 0;
+  const x = setup("codex-cli", "", "", {
+    resolveAcpPath: () => new Promise(resolve => { release = resolve; }),
+    testAndEnableAi: async () => { prompts++; },
+  });
+  await settle();
+  x.settings.aiProvider = "openai";
+  release(""); await settle();
+  assert.equal(x.host.querySelector(".qiaomu-reader-ai-install-help").hidden, true);
+  assert.equal(prompts, 0);
+  assert.equal(x.settings.aiEnabled, undefined);
+});
+test("failed retry stays actionable and never announces a connection", async () => {
+  const x = setup("codex-cli", "", "", {
+    resolveAcpPath: async () => "",
+    testAndEnableAi: async () => { throw new Error("Sign in first"); },
+  });
+  await settle();
+  const help = x.host.querySelector(".qiaomu-reader-ai-install-help");
+  const retry = help.querySelectorAll("button")[1]; retry.click(); await settle();
+  assert.equal(retry.disabled, false);
+  assert.equal(help.getAttribute("role"), "alert");
+  assert.equal(help.firstElementChild.textContent, "Sign in first");
+  assert.equal(x.counts().redrawn, 0);
+});
+test("already installed components keep installation instructions hidden", async () => {
+  const x = setup("codex-cli"); await settle();
+  assert.equal(x.host.querySelector(".qiaomu-reader-ai-install-help").hidden, true);
+});
+test("missing Codex CLI gives installation and login steps before adapter setup", async () => {
+  const x = setup("codex-cli", "", "", { resolveCliPath: async () => "" }); await settle();
+  assert.match(x.host.querySelector(".qiaomu-reader-ai-install-help code").textContent, /@openai\/codex\ncodex login/);
+});
+
+test("installing CLI first then discovering a missing adapter advances to the adapter command", async () => {
+  const x = setup("codex-cli", "", "", {
+    resolveCliPath: async () => "",
+    testAndEnableAi: async () => { throw Object.assign(new Error("missing adapter"), { qiaomuReaderReason: "acpmissing" }); },
+  });
+  await settle();
+  const help = x.host.querySelector(".qiaomu-reader-ai-install-help");
+  help.querySelectorAll("button")[1].click(); await settle();
+  assert.equal(help.querySelector("code").textContent, "npm install -g @agentclientprotocol/codex-acp");
+  assert.equal(help.querySelectorAll("button")[1].disabled, false);
+});
+test("switching provider during a live connection test cannot enable the new provider", async () => {
+  const code = source.slice(source.indexOf("async function testAndEnableAi("), source.indexOf("function openPluginAiSettings("));
+  let finish;
+  const run = vm.runInNewContext(`${code}; testAndEnableAi`, {
+    aiConfig: p => ({ id: p.settings.aiProvider, model: p.settings.aiModel, provider: {} }),
+    ensureAiCliReady: async () => {}, qiaomuReaderTranslate: k => k,
+    aiTestConnection: () => new Promise(resolve => { finish = resolve; }),
+  });
+  const plugin = { settings: { aiProvider: "codex-cli", aiModel: "", aiEnabled: false }, saveAll: async () => {} };
+  const promise = run(plugin); await settle();
+  plugin.settings.aiProvider = "openai"; finish({});
+  await assert.rejects(promise, e => e.qiaomuReaderReason === "notconfigured");
+  assert.equal(plugin.settings.aiEnabled, false);
 });

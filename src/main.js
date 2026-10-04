@@ -23,6 +23,7 @@ const BOOK_EXTENSIONS = new Set([...ENGINE_EXTENSIONS, "pdf"]);
 // makes every page render fail. The supported legacy browser build includes the
 // required compatibility layer while exposing the same API.
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import { unpackPdfWorker } from "./pdf-worker.js";
 import { AI_PROVIDER_CATEGORIES, AI_PROVIDERS, aiProviderFor, buildAiRequestBody, buildAiRequestOptions, classifyAiHttpStatus, normalizeAiBase } from "./ai-providers.js";
 import { createOpenAiSseParser } from "./ai-stream.js";
 import { composeAiAnswerNote } from "./ai-note.js";
@@ -1473,23 +1474,29 @@ function openImageLightbox(srcUrl, app, ownerEl) {
   window.requestAnimationFrame(() => layer.classList.add("qiaomu-reader-lightbox-on"));
 }
 let workerReady = false;
+let workerPreparing = null;
 async function setupWorker(app) {
   if (workerReady)
     return;
-  try {
-    const code = __PDF_WORKER_CODE__;
-    if (!code) throw new Error("embedded pdf.worker is empty");
-    pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
-      new Blob([code], { type: "application/javascript" })
-    );
-    workerReady = true;
-    return;
-  } catch (e) {
-    console.error("Qiaomu Reader: could not start the embedded pdf.worker", e);
-    new Notice(qiaomuReaderTranslate("could-not-prepare-pdf-reading-please-reinstall-the-plugin"));
-  }
-  workerReady = true;
+  if (workerPreparing) return workerPreparing;
+  workerPreparing = (async () => {
+    try {
+      const code = await unpackPdfWorker(__PDF_WORKER_ARCHIVE__);
+      pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
+        new Blob([code], { type: "application/javascript" })
+      );
+      workerReady = true;
+    } catch (e) {
+      console.error("Qiaomu Reader: could not start the embedded pdf.worker", e);
+      new Notice(qiaomuReaderTranslate("could-not-prepare-pdf-reading-please-reinstall-the-plugin"));
+      throw e;
+    } finally {
+      workerPreparing = null;
+    }
+  })();
+  return workerPreparing;
 }
+
 const QiaomuBookReader = class extends Plugin {
   constructor() {
     super(...arguments);
@@ -13157,9 +13164,19 @@ async function testAndEnableAi(plugin, onStage = () => {}) {
     error.qiaomuReaderReason = "notconfigured";
     throw error;
   }
+  const stillCurrent = () => {
+    const current = aiConfig(plugin);
+    if (current.id !== cfg.id || current.model !== cfg.model) {
+      const error = new Error("AI configuration changed during verification");
+      error.qiaomuReaderReason = "notconfigured";
+      throw error;
+    }
+  };
   await ensureAiCliReady(plugin, onStage);
+  stillCurrent();
   onStage(qiaomuReaderTranslate("testing"));
   const result = await aiTestConnection(plugin);
+  stillCurrent();
   plugin.settings.aiEnabled = true;
   plugin.settings.aiNeedsVerification = false;
   await plugin.saveAll();
@@ -13482,6 +13499,7 @@ const SettingsTab = class extends PluginSettingTab {
     const needsSecret = p.transport !== "cli" && p.needsKey && !cfg.key;
     if (needsSecret || cfg.id === "custom") this._aiSecretRow(c, s, p);
     if (cfg.id === "custom") this._aiBaseRow(c, s, p);
+    if (p.transport === "cli") this._aiCliSetupHelp(c, s, redraw, options);
     const feedback = c.createDiv("qiaomu-reader-ai-setup-feedback");
     feedback.setAttribute("role", "status");
     const paintStatus = () => {
@@ -13504,9 +13522,73 @@ const SettingsTab = class extends PluginSettingTab {
       if (p.needsKey && !needsSecret) this._aiSecretRow(connection, s, p);
       if (cfg.id !== "custom") this._aiBaseRow(connection, s, p);
     }
-    this._aiTestRow(connection, p, options);
+    this._aiTestRow(p.transport === "cli" ? c : connection, p, options);
     const behavior = this._settingsDisclosure(advanced, "ai-response-preferences");
     this._aiTailRows(behavior, s, p, cfg);
+  }
+  _aiCliSetupHelp(host, s, redraw, options) {
+    if (!Platform.isDesktopApp) return;
+    const provider = s.aiProvider;
+    const model = s.aiModel;
+    const acp = cliAcpSupport(provider);
+    const cli = cliMeta(provider);
+    if (!acp.supported) return;
+    const help = host.createDiv("qiaomu-reader-ai-install-help");
+    help.hidden = true;
+    help.setAttribute("role", "status");
+    const current = () => help.isConnected && s.aiProvider === provider && s.aiModel === model;
+    const show = (message, command = "") => {
+      help.empty();
+      help.hidden = false;
+      help.createDiv({ text: message });
+      if (command) {
+        help.createEl("code", { text: command });
+        const copy = help.createEl("button", { text: qiaomuReaderTranslate("copy-command"), attr: { type: "button" } });
+        copy.addEventListener("click", async () => {
+          const ok = await copyToClipboard(command);
+          if (current()) new Notice(qiaomuReaderTranslate(ok ? "install-command-copied" : "copy-failed-copy-the-command-manually"));
+        });
+      }
+      const retry = help.createEl("button", { text: qiaomuReaderTranslate("ai-recheck-installation"), attr: { type: "button" } });
+      retry.addEventListener("click", async () => {
+        if (!current()) return;
+        retry.disabled = true;
+        try {
+          const result = await testAndEnableAi(this.plugin, text => { if (current()) retry.textContent = text; });
+          if (!current()) return;
+          if (typeof options.onReady === "function") options.onReady(result);
+          else redraw();
+        } catch (error) {
+          if (!current()) return;
+          if (error?.qiaomuReaderReason === "acpmissing") {
+            show(qiaomuReaderTranslate("ai-connection-component-missing", acp.label), acp.installCommand);
+            return;
+          }
+          help.setAttribute("role", "alert");
+          help.firstElementChild.textContent = aiConnectionErrorMessage(error);
+          retry.disabled = false;
+          retry.textContent = qiaomuReaderTranslate("ai-recheck-installation");
+        }
+      });
+      const docs = help.createEl("button", { text: qiaomuReaderTranslate("view-install-docs"), attr: { type: "button" } });
+      docs.addEventListener("click", () => window.open(acp.installUrl, "_blank"));
+    };
+    // Discovery checks local executables only; it never installs or sends book content.
+    void (async () => {
+      try {
+        const binary = cli.acpOnly ? true : await resolveCliPath(provider, s.aiCliPaths?.[provider]);
+        if (!current()) return;
+        if (!binary) {
+          show(qiaomuReaderTranslate("cli-not-found-install-it-or-set-its-path-first"), provider === "codex-cli" ? "npm install -g @openai/codex\ncodex login" : "");
+          return;
+        }
+        const adapter = await resolveAcpPath(provider, s.aiAcpPaths?.[provider]);
+        if (!current()) return;
+        if (!adapter) show(qiaomuReaderTranslate("ai-connection-component-missing", acp.label), acp.installCommand);
+      } catch (error) {
+        if (current()) show(aiConnectionErrorMessage(error));
+      }
+    })();
   }
   _settingsDisclosure(host, key) {
     const details = host.createEl("details", { cls: "qiaomu-reader-settings-disclosure" });
