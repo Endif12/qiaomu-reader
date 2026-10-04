@@ -8,7 +8,7 @@
 
 /* ── Reader shell, paginated flow, text selection ─────────────────────────── */
 .workspace-leaf-content[data-type="qiaomu-reader"] > .view-header { display:none; }
-.view-content.qiaomu-reader-view { display:flex; flex-direction:column; height:100%; background:var(--qiaomu-reader-bg,var(--background-primary)); overflow:hidden; position:relative; padding:0; margin:0; box-sizing:border-box; }
+.workspace-leaf-content[data-type="qiaomu-reader"] > .view-content.qiaomu-reader-view { color:var(--qiaomu-reader-text,var(--text-normal)); display:flex; flex-direction:column; height:100%; background:var(--qiaomu-reader-bg,var(--background-primary)); overflow:hidden; position:relative; padding:0; margin:0; box-sizing:border-box; }
 .qiaomu-reader-content img { max-width:100%; height:auto; display:block; margin:8px auto; }
 .qiaomu-reader-content figure { margin:8px auto; text-align:center; }
 .qiaomu-reader-content figure img { margin:0 auto; }
@@ -1675,3 +1675,18 @@ body.qiaomu-reader-active-view .status-bar { display: none; }
 .qiaomu-reader-ai-install-help { margin:8px 0; padding:12px; border-radius:10px; background:var(--background-secondary); color:var(--text-normal); font-size:var(--font-ui-small); line-height:1.6; }
 .qiaomu-reader-ai-install-help code { display:block; margin:8px 0; white-space:pre-wrap; overflow-wrap:anywhere; user-select:text; }
 .qiaomu-reader-ai-install-help button { margin:8px 8px 0 0; white-space:normal; height:auto; min-height:32px; }
+
+/* Native pane dividers: the tab strip follows the host; content follows its panel. */
+.workspace-leaf-resize-handle.qiaomu-pane-divider {
+  --qiaomu-divider-current: var(--qiaomu-divider-color);
+  --qiaomu-divider-host: var(--divider-color);
+  --qiaomu-divider-paint: linear-gradient(var(--qiaomu-divider-direction), var(--qiaomu-divider-host) 0px, var(--qiaomu-divider-host) var(--qiaomu-divider-start), var(--qiaomu-divider-current) var(--qiaomu-divider-start), var(--qiaomu-divider-current) var(--qiaomu-divider-end), var(--qiaomu-divider-host) var(--qiaomu-divider-end));
+  border-image-source: var(--qiaomu-divider-paint);
+  border-image-slice: 1;
+}
+.workspace-leaf-resize-handle.qiaomu-pane-divider:is(:hover,:active,.is-active,.mobile-tap) {
+  --qiaomu-divider-current: var(--qiaomu-divider-hover);
+  --qiaomu-divider-host: var(--divider-color-hover);
+  background-color: transparent;
+  background-image: var(--qiaomu-divider-paint);
+}

@@ -1,3 +1,4 @@
+import { watchPaneDividers } from "./pane-dividers.js";
 import { selectionActionPreferences } from "./selection-preferences.js";
 import { watchQuietUi } from "./quiet-ui.js";
 import { watchReaderStatusBar } from "./status-bar.js";
@@ -1519,6 +1520,7 @@ const QiaomuBookReader = class extends Plugin {
     this._unreadableStores = new Map();
   }
   async onload() { // state first (loadAll), then every Obsidian integration, registered in the original order
+    watchPaneDividers(this);
     configureEngineFrames(Platform.isAndroidApp);
     await this.loadAll(); await this._attachAiDraftStore();
     this._unloading = false;
