@@ -2,7 +2,7 @@ const SERVICE = /* @__PURE__ */ Symbol.for("qiaomu.pane-dividers.v1");
 const HANDLE = ".workspace-leaf-resize-handle";
 const VIEWS = /* @__PURE__ */ new Set(["qiaomu-reader", "qiaomu-book-reader-ai-chat", "qiaomu-agent-view", "qiaomu-ai-rss-reader", "qiaomu-home", "qiaomu-radio-view"]);
 const STRUCTURE = ".workspace-leaf,.workspace-split,.workspace-tabs,.workspace-leaf-resize-handle";
-const PROPS = ["--divider-color", "--divider-color-hover"];
+const PROPS = ["--qiaomu-divider-color", "--qiaomu-divider-hover", "--qiaomu-divider-start", "--qiaomu-divider-end", "--qiaomu-divider-direction"];
 function channels(color) {
   if (/^#[\da-f]{6}$/i.test(color)) return [1, 3, 5].map((start) => parseInt(color.slice(start, start + 2), 16));
   const srgb = /^color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: \/ ([\d.]+))?\)$/.exec(color);
@@ -58,7 +58,7 @@ function createService(doc) {
       const root = content.querySelector(".view-content");
       if (!root) continue;
       const surface = root.querySelector(".qiaomu-radio__shell") || root;
-      panes.push({ rect, palette: palette(surface, win) });
+      panes.push({ rect, content: root.getBoundingClientRect(), palette: palette(surface, win) });
     }
     const active = /* @__PURE__ */ new Set();
     for (const handle of workspace.querySelectorAll(HANDLE)) {
@@ -80,6 +80,10 @@ function createService(doc) {
       }
       const { background, foreground } = selected.palette;
       const values = [12, 24].map((amount) => `color-mix(in srgb, ${foreground} ${amount}%, ${background})`);
+      const start = vertical ? selected.content.top - rect.top : selected.content.left - rect.left;
+      const end = vertical ? selected.content.bottom - rect.top : selected.content.right - rect.left;
+      const length = vertical ? rect.height : rect.width;
+      values.push(`${Math.max(0, Math.min(length, start))}px`, `${Math.max(0, Math.min(length, end))}px`, vertical ? "to bottom" : "to right");
       values.forEach((value, i) => {
         const key = PROPS[i];
         if (key && handle.style.getPropertyValue(key) !== value) handle.style.setProperty(key, value);
