@@ -536,3 +536,51 @@ test("the PDF paginator rejects ebook HTML before layout or parsing", async () =
   const PdfPaginator = vm.runInNewContext(`${source.slice(start, end)}\nPdfPaginator`, { PDF_ZOOM_DEFAULT: 1 });
   await assert.rejects(new PdfPaginator().build({}, '<p>ebook text</p>', {}, 0), /PDF page surfaces required/);
 });
+
+test("a PDF visibility check with no new pages preserves a live selection and highlight nodes", async () => {
+  const dom = new JSDOM('<main><div class="surface"><img data-loaded="1"><span class="highlight">selected text</span></div></main>');
+  const flow = dom.window.document.querySelector('main');
+  const marker = flow.querySelector('span');
+  const selection = dom.window.getSelection();
+  const range = dom.window.document.createRange();
+  range.selectNodeContents(marker); selection.addRange(range);
+  let refreshes = 0;
+  const view = { pager: { flow }, _pdfLazy: {}, _renderFlowHighlights: () => { refreshes++; marker.remove(); } };
+  const render = vm.runInNewContext(`${functionSource('renderVisibleFigures')}\nrenderVisibleFigures`, {
+    figureSweepReady: () => true, sweepReaderFigures: async () => new Set(),
+    markFoundIn: () => assert.fail('search should not rebuild unchanged pages'),
+  });
+  view._foundQuery = 'selected';
+  await render(view);
+  assert.equal(refreshes, 0);
+  assert.equal(marker.isConnected, true);
+  assert.equal(selection.toString(), 'selected text');
+  dom.window.close();
+});
+
+test("PDF loading refreshes only newly rendered page surfaces", async () => {
+  const surfaces = [{ page: 2 }, { page: 3 }];
+  const refreshed = [];
+  const view = { pager: {}, _pdfLazy: {}, _renderFlowHighlights: surface => refreshed.push(surface) };
+  const render = vm.runInNewContext(`${functionSource('renderVisibleFigures')}\nrenderVisibleFigures`, {
+    figureSweepReady: () => true, sweepReaderFigures: async () => new Set(surfaces),
+  });
+  await render(view);
+  assert.deepEqual(refreshed, surfaces);
+});
+
+test("reused PDF markup updates layout CSS without replacing loaded images or selected text", () => {
+  const method = source.slice(source.indexOf('  _mountBookHtml('), source.indexOf('  _bookStyleCss('));
+  const mount = vm.runInNewContext(`({${method}})._mountBookHtml`);
+  const dom = new JSDOM('<main><style>old rules</style><img src="data:image/png;base64,loaded"><span>selected text</span></main>');
+  const flow = dom.window.document.querySelector('main');
+  const image = flow.querySelector('img'), text = flow.querySelector('span').firstChild;
+  const range = dom.window.document.createRange(); range.selectNodeContents(flow.querySelector('span'));
+  dom.window.getSelection().addRange(range);
+  mount.call({ flow, _bookStyleCss: () => 'new layout rules' }, '', {}, {}, false, true);
+  assert.equal(flow.querySelector('img'), image);
+  assert.equal(flow.querySelector('span').firstChild, text);
+  assert.equal(dom.window.getSelection().toString(), 'selected text');
+  assert.equal(flow.querySelector('style').textContent, 'new layout rules');
+  dom.window.close();
+});

@@ -2852,6 +2852,7 @@ const PdfPaginator = class {
     await this._ensureFonts(docOf(area), cfg);
     const reuse = !!(this.flow && this.clip && this.flow.parentElement === this.clip
       && this.clip.parentElement === area && this._html === bookHtml);
+    this.lastBuildReused = reuse;
     if (!reuse) area.empty();
     this._vAlign = cfg.vAlign || "top";
     this._vCache = this._blockGeom = null;
@@ -2944,7 +2945,8 @@ const PdfPaginator = class {
   }
   _styleFlow(cfg, geo, cjk) {
     // Switching back from pagination must discard its measured translation.
-    for (const property of ["transform", "column-width", "column-gap", "column-fill", "min-height"])
+    if (this.scrollMode) this.flow.style.removeProperty("transform");
+    for (const property of ["column-width", "column-gap", "column-fill", "min-height"])
       this.flow.style.removeProperty(property);
     // Every dimension here is a build-time measurement, hence inline style.
     // No transition on purpose: .qiaomu-reader-flow-anim (added when layout
@@ -2983,7 +2985,10 @@ const PdfPaginator = class {
   _mountBookHtml(bookHtml, cfg, geo, cjk, reuse) {
     // extractPdf emits sanitized page surfaces; no ebook HTML enters here.
     const markup = `<style>\n${this._bookStyleCss(cfg, geo, cjk)}\n</style>${bookHtml}<div class="qiaomu-reader-end" aria-hidden="true"></div>`;
-    if (reuse) return;
+    if (reuse) {
+      this.flow.querySelector("style").textContent = this._bookStyleCss(cfg, geo, cjk);
+      return;
+    }
     const parser = new DOMParser();
     const parsed = parser.parseFromString(markup, "text/html");
     this.flow.replaceChildren();
@@ -7839,12 +7844,16 @@ async function drawFigure(img, lazy, current = () => true) {
   if (surface) surface.addClass(FIGURE_RENDERING_CLASS);
   try {
     const rendered = await lazy.render(figurePageNumber(img), img.ownerDocument);
-    if (!current()) return;
+    if (!current()) return false;
     img.src = rendered.src;
     const oldLayer = surface?.querySelector(".qiaomu-reader-pdf-text-layer");
-    if (oldLayer && rendered.textLayer) oldLayer.replaceWith(rendered.textLayer);
+    if (oldLayer && rendered.textLayer) {
+      rendered.textLayer.style.setProperty("--total-scale-factor", oldLayer.style.getPropertyValue("--total-scale-factor"));
+      oldLayer.replaceWith(rendered.textLayer);
+    }
     if (typeof img.decode === "function") await img.decode().catch(() => {});
     img.setAttribute(FIGURE_LOADED_ATTR, "1");
+    return true;
   } catch (e) {
     if (current()) markFigureUnavailable(img, surface, e);
   } finally {
@@ -7855,6 +7864,7 @@ async function drawFigure(img, lazy, current = () => true) {
 async function sweepReaderFigures(reader, lazy) {
   const { pager } = reader;
   const flow = pager.flow;
+  const changed = new Set();
   const columnWidth = pager.sw || 1;
   const spread = pager.spread;
   const vertical = pager.scrollMode;
@@ -7862,11 +7872,11 @@ async function sweepReaderFigures(reader, lazy) {
   const gapOf = (img) => figureSpreadGap(img, flowRect, columnWidth, spread, vertical);
   const current = () => !reader._closed && reader._pdfLazy === lazy && !lazy._destroyed && reader.pager === pager;
   for (const img of [...flow.querySelectorAll(FIGURE_LAZY_SELECTOR)]) {
-    if (!current()) return;
+    if (!current()) return changed;
     const gap = gapOf(img);
     const loadState = img.getAttribute(FIGURE_LOADED_ATTR);
     if (gap <= FIGURE_LOAD_SPAN && loadState !== "1" && loadState !== "skip") {
-      await drawFigure(img, lazy, current);
+      if (await drawFigure(img, lazy, current)) changed.add(img.closest(FIGURE_SURFACE_SELECTOR) || flow);
     } else if (gap > FIGURE_DROP_SPAN && loadState === "1") {
       if (img.hasAttribute("src")) img.removeAttribute("src");
       const surface = img.closest(FIGURE_SURFACE_SELECTOR);
@@ -7879,6 +7889,7 @@ async function sweepReaderFigures(reader, lazy) {
       img.setAttribute(FIGURE_LOADED_ATTR, "0");
     }
   }
+  return changed;
 }
 
 async function renderVisibleFigures(reader) {
@@ -7886,13 +7897,16 @@ async function renderVisibleFigures(reader) {
   if (!figureSweepReady(reader, lazy)) return;
   if (reader._figBusy) { reader._figPending = reader._figBusy; return; }
   Object.assign(reader, { _figBusy: true });
+  const pager = reader.pager;
   try {
-    await sweepReaderFigures(reader, lazy);
+    const changed = await sweepReaderFigures(reader, lazy);
+    if (reader._pdfLazy === lazy && reader.pager === pager && !reader._closed) {
+      for (const surface of changed) reader._renderFlowHighlights?.(surface);
+      if (changed.size && reader._foundQuery) markFoundIn(reader, reader._foundQuery);
+    }
   } finally {
     const rerun = reader._figPending;
     reader._figBusy = reader._figPending = false;
-    reader._renderFlowHighlights?.();
-    if (reader._foundQuery) markFoundIn(reader, reader._foundQuery);
     if (rerun) renderVisibleFigures(reader);
   }
 }
@@ -10770,6 +10784,8 @@ const ReaderView = class extends ItemView {
     if (flash) this._flashBlock(block);
   }
   _setRelayout(on) {
+    // Keep loaded PDF pixels visible while their geometry is adjusted.
+    if (readerIsPdf(this) && this.pager.flow?.isConnected) on = false;
     if (!on) qiaomuReaderHideVeil(this);
     const root = this.contentEl;
     if (!root) return;
@@ -10787,14 +10803,14 @@ const ReaderView = class extends ItemView {
     return queueReadingLayout(this, (anchor) => this._repaginateAnchored(anchor));
   }
   async _repaginateAnchored(anchor) {
-    this._setRelayout(true); qiaomuReaderShowVeil(this);
+    this._setRelayout(true);
     try {
       await waitForReaderFrame(docOf(this.areaEl).defaultView);
-      this.areaEl.empty(); const pager = this.pager;
+      const pager = this.pager;
       await pager.build(this.areaEl, this.bookHtml, this.plugin.settings, 0);
       if (pager !== this.pager || !this.bookHtml || this._closed) return;
       this._recordLaidOutWidth();
-      this._renderFlowHighlights(); // re-wrap markers on the fresh blocks
+      if (!pager.lastBuildReused) this._renderFlowHighlights();
       const [cur, tot] = restoreReadingAnchor(this.pager, anchor);
       restoreAiSource(this);
       if (this.pdfZoomMode === "width") fitPdfWidth(this);
@@ -11127,20 +11143,21 @@ const ReaderView = class extends ItemView {
     this._hideHlPopup();
     this.closePanel();
     await this.plugin.refreshHighlights();
+    this._renderFlowHighlights();
     this._lastWidth = this.areaEl.clientWidth;
     await this.repaginate();
     new Notice(qiaomuReaderTranslate("refreshed"));
   }
-  _renderFlowHighlights() {
+  _renderFlowHighlights(scope = this.pager.flow) {
     if (this.engine) { this._renderEngineHighlights(); return; }
     if (!this.file || !this.pager.flow) return;
     const flow = this.pager.flow;
-    unwrapAllHighlights(flow);
+    unwrapAllHighlights(scope);
     const blocks = flow.querySelectorAll(READER_BLOCK_SELECTOR);
     const list = this.plugin.getHighlights(this.file.path);
     for (const hl of list) {
       const anchor = resolveHighlightAnchor(blocks, hl, this.file.extension === "pdf");
-      if (!anchor) continue;
+      if (!anchor || !scope.contains(anchor.block)) continue;
       wrapBlockRange(anchor.block, anchor.loc.start, anchor.loc.start + anchor.loc.len, { id: hl.id, color: hlColorCss(hl.color) });
     }
   }
@@ -12407,10 +12424,8 @@ const ReaderModal = class extends Modal {
     return queueReadingLayout(this, (anchor) => this._repaginateAnchored(anchor));
   }
   async _repaginateAnchored(anchor) {
-    this.areaEl.addClass("qiaomu-reader-booting");
-    qiaomuReaderShowVeil(this);
     await this.pager.build(this.areaEl, this.bookHtml, this.plugin.settings, 0);
-    this._renderFlowHighlights();
+    if (!this.pager.lastBuildReused) this._renderFlowHighlights();
     const [cur, tot] = restoreReadingAnchor(this.pager, anchor);
     restoreAiSource(this);
     if (this.pdfZoomMode === "width") fitPdfWidth(this);
@@ -12840,15 +12855,15 @@ const ReaderModal = class extends Modal {
     if (this.findPan) this.findPan.classList.remove("qiaomu-reader-panel-open");
     this.overlayEl.classList.remove("qiaomu-reader-overlay-on");
   }
-  _renderFlowHighlights() {
+  _renderFlowHighlights(scope = this.pager.flow) {
     if (this.engine) { this._renderEngineHighlights(); return; }
     if (!this.file || !this.pager.flow) return;
-    unwrapAllHighlights(this.pager.flow);
+    unwrapAllHighlights(scope);
     const blocks = this.pager.flow.querySelectorAll(READER_BLOCK_SELECTOR);
     const list = this.plugin.getHighlights(this.file.path);
     for (const hl of list) {
       const anchor = resolveHighlightAnchor(blocks, hl, this.file.extension === "pdf");
-      if (!anchor) continue;
+      if (!anchor || !scope.contains(anchor.block)) continue;
       wrapBlockRange(anchor.block, anchor.loc.start, anchor.loc.start + anchor.loc.len, { id: hl.id, color: hlColorCss(hl.color) });
     }
   }
