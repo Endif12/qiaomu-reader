@@ -106,7 +106,8 @@ const neutralise = {
   name: "neutralise-dead-script-injection",
   setup(build) {
     // Replace JSZip's IE script-element timer with modern, cancellable timers.
-    build.onResolve({ filter: /^setimmediate$/ }, () => ({ path: path.resolve("src/zip-scheduler.js") }));
+    build.onResolve({ filter: /^jszip$/ }, () => ({ path: path.resolve("node_modules/jszip/lib/index.js") }));
+    build.onResolve({ filter: /^(setimmediate|immediate)$/ }, () => ({ path: path.resolve("src/zip-scheduler.js") }));
     const targets = /node_modules[\\/](pdfjs-dist|jszip|epubjs)[\\/].*\.(js|mjs)$/;
     build.onLoad({ filter: targets }, async (args) => {
       let code = await fs.promises.readFile(args.path, "utf8");

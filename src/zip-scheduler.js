@@ -9,5 +9,12 @@ export function installZipScheduler(target) {
   };
   target.clearImmediate = handle => target.clearTimeout(handle);
 }
-// eslint-disable-next-line obsidianmd/no-global-this -- Polyfill targets the execution realm used by JSZip, not a popout document.
-installZipScheduler(globalThis);
+// In Obsidian, JSZip executes in this window's JavaScript realm.
+// Node test/build hosts already supply native setImmediate.
+if (typeof window !== "undefined") installZipScheduler(window);
+
+// The Promise fallback's `immediate` dependency needs a function scheduler too.
+export default function scheduleZipTask(callback) {
+  if (typeof callback !== "function") throw new TypeError("Expected a callback");
+  return window.setTimeout(callback, 0);
+}
