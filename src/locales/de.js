@@ -1,4 +1,8 @@
 export default {
+  "ai-appearance": "Darstellung der Lesehilfe",
+  "ai-follow-book-appearance": "Buchdarstellung übernehmen",
+  "ai-appearance-description": "Schrift, Größe, Zeilenabstand und Hintergrund des Buches verwenden. Für eigene Einstellungen ausschalten.",
+
   "ai-connection-component-missing": "Installiere die Verbindungskomponente {0}. Führe den Befehl im Terminal aus und prüfe erneut.",
   "ai-recheck-installation": "Nach Installation prüfen",
 
@@ -998,6 +1002,12 @@ export default {
   "ai-model-configuration": "KI-Modellkonfiguration",
   "choose-a-service-model-and-key-ollama-and-lm-studio-run-locally": "Wählen Sie einen Dienst, ein Modell und einen Schlüssel. Ollama und LM Studio laufen lokal.",
   "match-obsidian-2": "Mit Obsidian abgleichen",
+  "bright": "Hell",
+  "rice-paper": "Reispapier",
+  "bamboo": "Bambus",
+  "mist-blue": "Nebelblau",
+  "deep-sea": "Tiefsee",
+  "ink-black": "Tintenschwarz",
   "paper-white": "Papierweiß",
   "warm-paper": "Warmes Papier",
   "celadon": "Seladon",

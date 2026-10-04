@@ -670,7 +670,7 @@ test("reading themes migrate legacy names and meet WCAG AA contrast", () => {
   assert.equal(migrateReaderTheme("sepia"), "warm");
   assert.equal(migrateReaderTheme("dark"), "night");
   assert.equal(migrateReaderTheme("eink"), "moon");
-  assert.deepEqual(READER_THEME_CHOICES, ["auto", "paper", "warm", "celadon", "moon", "night"]);
+  assert.deepEqual(READER_THEME_CHOICES, ["auto", "bright", "paper", "rice", "warm", "celadon", "bamboo", "moon", "mist", "night", "deepsea", "black"]);
   assert.ok(READER_THEMES.eink, "e-ink device mode keeps its internal high-contrast palette");
   for (const id of READER_THEME_CHOICES.filter((name) => name !== "auto")) {
     const theme = READER_THEMES[id];

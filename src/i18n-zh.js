@@ -1,6 +1,10 @@
 // Generated from the complete source UI dictionary and reviewed for core reading terms.
 // Keep placeholders, Markdown and HTML structure identical to the source strings.
 export const QIAOMU_READER_ZH_CN = {
+  "ai-appearance": "伴读外观",
+  "ai-follow-book-appearance": "跟随书籍外观",
+  "ai-appearance-description": "同步书籍的字体、字号、行距和背景。关闭后可单独调整伴读外观。",
+
   "ai-connection-component-missing": "需要安装 {0} 连接组件。在终端执行下面的命令，安装后重新检测。",
   "ai-recheck-installation": "安装后重新检测",
 
@@ -989,6 +993,12 @@ export const QIAOMU_READER_ZH_CN = {
   "ai-model-configuration": "AI 模型配置",
   "choose-a-service-model-and-key-ollama-and-lm-studio-run-locally": "选择服务、模型和密钥；Ollama 与 LM Studio 在本机运行。",
   "match-obsidian-2": "跟随 Obsidian",
+  "bright": "明亮",
+  "rice-paper": "宣纸",
+  "bamboo": "竹青",
+  "mist-blue": "雾蓝",
+  "deep-sea": "深海",
+  "ink-black": "墨黑",
   "paper-white": "纸白",
   "warm-paper": "暖纸",
   "celadon": "青瓷",

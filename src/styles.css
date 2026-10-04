@@ -131,13 +131,20 @@ img.qiaomu-reader-pdf-lazy:not([data-loaded="1"]) { background:color-mix(in srgb
 .qiaomu-reader-theme-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; padding:0 14px 4px; }
 .qiaomu-reader-theme-btn { min-width:0; padding:10px 4px; border-radius:8px; text-align:center; font-family:'Inter',system-ui,sans-serif; font-size:11px; font-weight:600; cursor:pointer; border:2px solid transparent; transition:border-color .15s,transform .1s; }
 .qiaomu-reader-theme-btn:active { transform:scale(.93); }
-.qiaomu-reader-theme-auto  { background:var(--background-primary); color:var(--text-normal); box-shadow:inset 0 0 0 1px var(--background-modifier-border); }
-.qiaomu-reader-theme-paper { background:#f8f6f0; color:#24231f; box-shadow:inset 0 0 0 1px #dcd5c8; }
-.qiaomu-reader-theme-warm { background:#f3ebdd; color:#30291f; box-shadow:inset 0 0 0 1px #d5c5ab; }
-.qiaomu-reader-theme-celadon { background:#eaf0e8; color:#243029; box-shadow:inset 0 0 0 1px #c6d3c4; }
-.qiaomu-reader-theme-moon { background:#eef2f3; color:#263238; box-shadow:inset 0 0 0 1px #c9d2d5; }
-.qiaomu-reader-theme-night { background:#181a1b; color:#d9d7d1; box-shadow:inset 0 0 0 1px #383c3d; }
-.qiaomu-reader-theme-btn.active { border-color:var(--qiaomu-reader-accent); box-shadow:0 0 0 1px var(--qiaomu-reader-accent); }
+.qiaomu-reader-theme-btn,
+.qiaomu-reader-rs .qiaomu-reader-rs-theme-card .qiaomu-reader-col-btn {
+  background:var(--qiaomu-reader-choice-bg); color:var(--qiaomu-reader-choice-text);
+  border:1px solid var(--qiaomu-reader-choice-border); box-shadow:none;
+}
+.qiaomu-reader-theme-btn.active,
+.qiaomu-reader-rs .qiaomu-reader-rs-theme-card .qiaomu-reader-col-btn.active {
+  border-color:var(--qiaomu-reader-choice-text); color:var(--qiaomu-reader-choice-text);
+  box-shadow:inset 0 0 0 1px var(--qiaomu-reader-choice-text);
+}
+.qiaomu-reader-theme-btn:focus-visible,
+.qiaomu-reader-rs .qiaomu-reader-rs-theme-card .qiaomu-reader-col-btn:focus-visible {
+  outline:1px solid var(--text-normal); outline-offset:2px;
+}
 .qiaomu-reader-sz-row { display:flex; align-items:center; gap:8px; padding:0 14px 4px; }
 .qiaomu-reader-sz-label { flex:1; text-align:center; font-size:14px; font-weight:700; color:var(--qiaomu-reader-text); font-family:'Inter',system-ui,sans-serif; }
 .qiaomu-reader-sz-btn { padding:9px 15px; border-radius:8px; background:rgba(0,0,0,.06); border:1px solid var(--qiaomu-reader-border); font-size:13px; font-weight:700; color:var(--qiaomu-reader-text); cursor:pointer; font-family:'Inter',system-ui,sans-serif; transition:background .13s,transform .1s; user-select:none; }
@@ -998,6 +1005,18 @@ img.qiaomu-reader-pdf-lazy:not([data-loaded="1"]) { background:color-mix(in srgb
 @media (max-width: 380px) { :root { --qiaomu-reader-pad: 12px; --qiaomu-reader-gap: 8px; } }
 @media (min-width: 900px) { :root { --qiaomu-reader-pad: 20px; } }
 
+/* Companion appearance: only conversation text changes font and size. */
+.qiaomu-reader-ai-appearance { background: var(--background-primary); color: var(--text-normal); }
+.qiaomu-reader-ai-appearance .qiaomu-reader-ai-msg,
+.qiaomu-reader-ai-appearance .qiaomu-reader-ai-input { font-family: var(--qbr-ai-font); font-size: var(--qbr-ai-size); line-height: var(--qbr-ai-line-height); }
+.qiaomu-reader-ai-appearance .qiaomu-reader-ai-msg-ai :is(h1,h2,h3,h4,h5,h6) { font-family: var(--qbr-ai-font); }
+.qiaomu-reader-ai-appearance-preview code { font-family: var(--font-monospace); font-size: 13px; background: var(--code-background); color: var(--code-normal); }
+.qiaomu-reader-ai-appearance-preview .qiaomu-reader-ai-msg { max-width: 100%; padding: 0; animation: none; }
+.qiaomu-reader-ai-appearance-settings { margin-top: 16px; --interactive-accent: var(--text-normal); --interactive-accent-hover: var(--text-normal); }
+.qiaomu-reader-ai-appearance-settings .qiaomu-reader-rs-seg { flex-wrap: wrap; gap: 8px; }
+.qiaomu-reader-ai-appearance-settings .qiaomu-reader-col-btn { height: auto; padding: 8px 10px; box-shadow: none; font-size: 13px; }
+.qiaomu-reader-ai-appearance-settings .qiaomu-reader-col-btn.active { outline: 1px solid var(--text-normal); outline-offset: 2px; }
+.qiaomu-reader-ai-appearance-settings .qiaomu-reader-col-btn:focus-visible { outline: 2px solid var(--text-normal); outline-offset: 3px; }
 /* ── AI assistant: modal shell and header ────────────────────────────────── */
 .modal.qiaomu-reader-ai-modal { width: min(100%, 680px); max-width: 100%; min-width: 0; --modal-background: var(--background-primary); background: var(--background-primary); -webkit-backdrop-filter: none; backdrop-filter: none; }
 .modal.qiaomu-reader-ai-modal > .modal-close-button { display:none; }
@@ -1631,20 +1650,20 @@ button.qiaomu-reader-find-item.qiaomu-reader-toc-active { background: var(--back
 /* Keep explicit night reading local to its view, even in a light vault. */
 .qiaomu-reader-night {
   color-scheme: dark;
-  --background-primary: #181a1b;
-  --background-primary-alt: #222526;
-  --background-secondary: #222526;
-  --background-secondary-alt: #181a1b;
-  --background-modifier-border: #383c3d;
-  --background-modifier-hover: #303536;
-  --background-modifier-form-field: #222526;
-  --text-normal: #d9d7d1;
-  --text-muted: #9a9a94;
-  --text-faint: #858b87;
-  --interactive-normal: #222526;
-  --interactive-hover: #303536;
-  --interactive-accent: #91ab9a;
-  --text-on-accent: #181a1b;
+  --background-primary: var(--qiaomu-reader-bg);
+  --background-primary-alt: var(--qiaomu-reader-ui);
+  --background-secondary: var(--qiaomu-reader-ui);
+  --background-secondary-alt: var(--qiaomu-reader-bg);
+  --background-modifier-border: var(--qiaomu-reader-border);
+  --background-modifier-hover: color-mix(in srgb, var(--qiaomu-reader-text) 8%, var(--qiaomu-reader-ui));
+  --background-modifier-form-field: var(--qiaomu-reader-ui);
+  --text-normal: var(--qiaomu-reader-text);
+  --text-muted: var(--qiaomu-reader-muted);
+  --text-faint: var(--qiaomu-reader-muted);
+  --interactive-normal: var(--qiaomu-reader-ui);
+  --interactive-hover: color-mix(in srgb, var(--qiaomu-reader-text) 8%, var(--qiaomu-reader-ui));
+  --interactive-accent: var(--qiaomu-reader-accent);
+  --text-on-accent: var(--qiaomu-reader-bg);
   color: var(--text-normal);
 }
 

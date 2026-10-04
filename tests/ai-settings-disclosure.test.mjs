@@ -42,6 +42,7 @@ function setup(provider, model = "", key = "", tools = {}) {
     copyToClipboard: tools.copyToClipboard || (async () => true), Notice: class {},
     testAndEnableAi: tools.testAndEnableAi || (async () => ({})),
     aiConnectionErrorMessage: e => e.message,
+    buildAiAppearanceSettings() {},
 
   });
   const settings = { aiProvider: provider, aiModel: model, aiModels: {}, aiSecrets: {}, aiBases: {} };

@@ -1,4 +1,8 @@
 export default {
+  "ai-appearance": "伴読の外観",
+  "ai-follow-book-appearance": "書籍の外観に合わせる",
+  "ai-appearance-description": "書籍のフォント、サイズ、行間、背景を使用します。オフにすると個別に設定できます。",
+
   "ai-connection-component-missing": "{0} 接続コンポーネントをインストールしてください。ターミナルで次のコマンドを実行し、再確認してください。",
   "ai-recheck-installation": "インストール後に再確認",
 
@@ -998,6 +1002,12 @@ export default {
   "ai-model-configuration": "AIモデル設定",
   "choose-a-service-model-and-key-ollama-and-lm-studio-run-locally": "サービス、モデル、キーを選択します。OllamaとLM Studioはローカルで実行されます。",
   "match-obsidian-2": "Obsidianに合わせる",
+  "bright": "明るい",
+  "rice-paper": "和紙",
+  "bamboo": "竹青",
+  "mist-blue": "霧ブルー",
+  "deep-sea": "深海",
+  "ink-black": "墨黒",
   "paper-white": "ペーパーホワイト",
   "warm-paper": "ウォームペーパー",
   "celadon": "青磁",

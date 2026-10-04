@@ -1,6 +1,10 @@
 // Russian locale pack. Inherited Russian UI strings keep their original wording;
 // strings that were originally Chinese source keys are translated to Russian here.
 export default {
+  "ai-appearance": "Оформление помощника",
+  "ai-follow-book-appearance": "Как в книге",
+  "ai-appearance-description": "Использовать шрифт, размер, интервал и фон книги. Отключите для отдельной настройки.",
+
   "ai-connection-component-missing": "Установите компонент подключения {0}. Выполните команду в терминале и проверьте снова.",
   "ai-recheck-installation": "Проверить после установки",
 
@@ -1000,6 +1004,12 @@ export default {
   "ai-model-configuration": "Настройка моделей AI",
   "choose-a-service-model-and-key-ollama-and-lm-studio-run-locally": "Выберите сервис, модель и ключ. Ollama и LM Studio работают локально.",
   "match-obsidian-2": "Как в Obsidian",
+  "bright": "Светлая",
+  "rice-paper": "Рисовая бумага",
+  "bamboo": "Бамбук",
+  "mist-blue": "Туманный синий",
+  "deep-sea": "Морская глубина",
+  "ink-black": "Чернильный чёрный",
   "paper-white": "Бумажный белый",
   "warm-paper": "Тёплая бумага",
   "celadon": "Селадон",

@@ -1,4 +1,8 @@
 export default {
+  "ai-appearance": "독서 도우미 모양",
+  "ai-follow-book-appearance": "책 모양에 맞추기",
+  "ai-appearance-description": "책의 글꼴, 크기, 줄 간격과 배경을 사용합니다. 끄면 별도로 설정할 수 있습니다.",
+
   "ai-connection-component-missing": "{0} 연결 구성 요소가 필요합니다. 터미널에서 명령을 실행한 후 다시 확인하세요.",
   "ai-recheck-installation": "설치 후 다시 확인",
 
@@ -998,6 +1002,12 @@ export default {
   "ai-model-configuration": "AI 모델 구성",
   "choose-a-service-model-and-key-ollama-and-lm-studio-run-locally": "서비스, 모델 및 키를 선택하세요. Ollama와 LM Studio는 로컬에서 실행됩니다.",
   "match-obsidian-2": "Obsidian과 일치",
+  "bright": "밝게",
+  "rice-paper": "한지",
+  "bamboo": "죽청",
+  "mist-blue": "안개 블루",
+  "deep-sea": "심해",
+  "ink-black": "먹색",
   "paper-white": "종이 백색",
   "warm-paper": "따뜻한 종이",
   "celadon": "청자",

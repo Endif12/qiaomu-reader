@@ -1,4 +1,8 @@
 export default {
+  "ai-appearance": "Apparence du compagnon",
+  "ai-follow-book-appearance": "Suivre l’apparence du livre",
+  "ai-appearance-description": "Utiliser la police, la taille, l’interligne et le fond du livre. Désactiver pour personnaliser séparément.",
+
   "ai-connection-component-missing": "Installez le composant de connexion {0}. Exécutez la commande dans le terminal, puis vérifiez à nouveau.",
   "ai-recheck-installation": "Vérifier après installation",
 
@@ -998,6 +1002,12 @@ export default {
   "ai-model-configuration": "Configuration du modèle IA",
   "choose-a-service-model-and-key-ollama-and-lm-studio-run-locally": "Choisissez un service, un modèle et une clé. Ollama et LM Studio s'exécutent localement.",
   "match-obsidian-2": "Correspondre à Obsidian",
+  "bright": "Clair",
+  "rice-paper": "Papier de riz",
+  "bamboo": "Bambou",
+  "mist-blue": "Bleu brume",
+  "deep-sea": "Mer profonde",
+  "ink-black": "Noir d’encre",
   "paper-white": "Blanc papier",
   "warm-paper": "Papier chaud",
   "celadon": "Céladon",

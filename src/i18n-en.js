@@ -1,4 +1,8 @@
 export const QIAOMU_READER_EN = {
+  "ai-appearance": "Companion appearance",
+  "ai-follow-book-appearance": "Match book appearance",
+  "ai-appearance-description": "Use the book’s font, size, spacing and background. Turn off to customize the companion separately.",
+
   "ai-connection-component-missing": "Install the {0} connection component, then check again. Run the command in Terminal.",
   "ai-recheck-installation": "Check after installing",
 
@@ -998,6 +1002,12 @@ export const QIAOMU_READER_EN = {
   "ai-model-configuration": "AI model configuration",
   "choose-a-service-model-and-key-ollama-and-lm-studio-run-locally": "Choose a service, model, and key. Ollama and LM Studio run locally.",
   "match-obsidian-2": "Match Obsidian",
+  "bright": "Bright",
+  "rice-paper": "Rice paper",
+  "bamboo": "Bamboo",
+  "mist-blue": "Mist blue",
+  "deep-sea": "Deep sea",
+  "ink-black": "Ink black",
   "paper-white": "Paper white",
   "warm-paper": "Warm paper",
   "celadon": "Celadon",
