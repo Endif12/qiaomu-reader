@@ -51,7 +51,7 @@ img.qiaomu-reader-pdf-lazy:not([data-loaded="1"]) { background:color-mix(in srgb
 .qiaomu-reader-view { --qiaomu-reader-status-top: max(var(--safe-area-inset-top, 0px), env(safe-area-inset-top, 0px)); }
 .qiaomu-reader-resume-flash { animation:qiaomu-reader-resume-flash 2.3s ease-out; border-radius:5px; }
 @keyframes qiaomu-reader-resume-flash { 0% { background:color-mix(in srgb, var(--qiaomu-reader-accent) 34%, transparent); box-shadow:0 0 0 6px color-mix(in srgb, var(--qiaomu-reader-accent) 12%, transparent); } 70% { background:color-mix(in srgb, var(--qiaomu-reader-accent) 24%, transparent); } 100% { background:transparent; box-shadow:0 0 0 6px transparent; } }
-.qiaomu-reader-pbar { position:absolute; top:var(--qiaomu-reader-status-top,0px); left:0; right:0; height:3px; background:rgba(0,0,0,.06); z-index:20; pointer-events:none; }
+.qiaomu-reader-pbar { position:absolute; top:var(--qiaomu-reader-status-top,0px); left:0; right:0; height:3px; background:rgba(0,0,0,.06); z-index:20; pointer-events:none; transition:opacity .22s ease-out; }
 .qiaomu-reader-pbar-fill { height:100%; width:0%; background:linear-gradient(90deg,var(--qiaomu-reader-accent,#5548d9),color-mix(in srgb,var(--qiaomu-reader-accent) 60%,#fff)); border-radius:0 2px 2px 0; transition:width .5s cubic-bezier(.4,0,.2,1); }
 
 /* ── Edge-aligned chrome: bars, buttons and location readout ─────────────── */
@@ -551,6 +551,7 @@ img.qiaomu-reader-pdf-lazy:not([data-loaded="1"]) { background:color-mix(in srgb
 /* ── Immersive mode: chrome floats over the page, then fully retracts ────── */
 .qiaomu-reader-top, .qiaomu-reader-bot { transition:opacity .22s ease-out,transform .22s cubic-bezier(.2,.8,.2,1),background .2s; }
 .qiaomu-reader-immersive .qiaomu-reader-top { opacity:0; transform:translateY(calc(-100% - 16px)); pointer-events:none; }
+.qiaomu-reader-immersive .qiaomu-reader-pbar { opacity:0; pointer-events:none; }
 .qiaomu-reader-immersive .qiaomu-reader-bot { opacity:0; transform:translateY(calc(100% + 16px)); pointer-events:none; }
 .qiaomu-reader-immersive .qiaomu-reader-goalbar { opacity:0; pointer-events:none; }
 

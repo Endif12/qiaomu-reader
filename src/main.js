@@ -8259,7 +8259,9 @@ function wrapBlockRange(block, start, end, hl) {
 }
 function _readerSettings(app) {
   const plugins = app && app.plugins && app.plugins.plugins;
-  const p = plugins ? plugins["qiaomu-reader"] : null;
+  // Personal fork runs under its own id; fall back to the upstream id so
+  // shared helpers keep working if both copies are ever present.
+  const p = plugins ? (plugins["qiaomu-reader-touchfix"] || plugins["qiaomu-reader"]) : null;
   return p && p.settings || {};
 }
 function noteTemplatePath(app, bookFile) {
