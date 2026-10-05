@@ -13,8 +13,10 @@ const code = ast.body
   .join("\n");
 assert.ok(code.includes("readerNavbarSync"), "navbar sync helpers must exist in src/main.js");
 
-function setup(calls) {
-  const sandbox = {};
+function setup() {
+  const calls = [];
+  let fakeNow = 1_000_000;
+  const sandbox = { Date: { now: () => fakeNow } };
   vm.createContext(sandbox);
   vm.runInContext(
     `${code}\nthis.__api = { setReaderNavbarHidden, readerNavbarSync };`,
@@ -25,44 +27,74 @@ function setup(calls) {
     hide: () => calls.push("hide"),
     show: () => calls.push("show"),
   } } };
-  return { api, view, sync: api.readerNavbarSync(view) };
+  return {
+    api, view, calls,
+    sync: api.readerNavbarSync(view),
+    advance: (ms) => { fakeNow += ms; },
+  };
 }
 
-const touch = (y) => ({ touches: [{ clientX: 10, clientY: y }] });
+const touch = (x, y, n = 1) => ({
+  touches: Array.from({ length: n }, () => ({ clientX: x, clientY: y })),
+});
 
 test("no navbar means no crash and no calls", () => {
-  const { api } = setup([]);
+  const { api } = setup();
   assert.doesNotThrow(() => api.setReaderNavbarHidden({}, true));
   assert.doesNotThrow(() => api.setReaderNavbarHidden(null, false));
 });
 
-test("scroll down hides, scroll up shows", () => {
-  const calls = [];
-  const { sync } = setup(calls);
-  sync.onTouchStart(touch(500));
-  sync.onTouchMove(touch(497)); // 3px jitter: nothing
+test("scroll down hides, scroll up shows, jitter does nothing", () => {
+  const { sync, calls } = setup();
+  sync.onTouchStart(touch(10, 500));
+  sync.onTouchMove(touch(10, 497)); // 3px jitter: nothing
+  sync.onTouchMove(touch(12, 490)); // still under 24px: nothing
   assert.deepEqual(calls, []);
-  sync.onTouchMove(touch(480)); // -20: hide
+  sync.onTouchMove(touch(10, 470)); // -30: hide
   assert.deepEqual(calls, ["hide"]);
-  sync.onTouchMove(touch(400)); // further up: hide again is fine
+  sync.onTouchMove(touch(10, 380)); // further up: hide again is fine
   assert.deepEqual(calls, ["hide", "hide"]);
-  sync.onTouchMove(touch(420)); // +20: show
+  sync.onTouchMove(touch(10, 410)); // +30: show
   assert.deepEqual(calls, ["hide", "hide", "show"]);
 });
 
-test("wheel and tap drive the bar", () => {
-  const calls = [];
-  const { sync } = setup(calls);
-  sync.onWheel({ deltaY: 120 });
-  sync.onWheel({ deltaY: -120 });
-  sync.onTap();
-  assert.deepEqual(calls, ["hide", "show", "show"]);
+test("a real tap shows, a scroll-release does not", () => {
+  const { sync, calls, advance } = setup();
+  // Tap: short and stationary.
+  sync.onTouchStart(touch(10, 500));
+  advance(120);
+  sync.onTouchEnd({ touches: [] });
+  assert.deepEqual(calls, ["show"]);
+  // Scroll then release: no tap-show.
+  calls.length = 0;
+  sync.onTouchStart(touch(10, 500));
+  sync.onTouchMove(touch(10, 300));
+  advance(900);
+  sync.onTouchEnd({ touches: [] });
+  assert.deepEqual(calls, ["hide"]);
 });
 
-test("multi-touch never toggles the bar", () => {
-  const calls = [];
-  const { sync } = setup(calls);
-  sync.onTouchStart({ touches: [{ clientX: 1, clientY: 500 }, { clientX: 2, clientY: 500 }] });
-  sync.onTouchMove({ touches: [{ clientX: 1, clientY: 100 }, { clientX: 2, clientY: 100 }] });
+test("click right after touch is the same gesture, mouse click still shows", () => {
+  const { sync, calls, advance } = setup();
+  sync.onTouchStart(touch(10, 500));
+  sync.onTouchEnd({ touches: [] });
+  assert.deepEqual(calls, ["show"]);
+  calls.length = 0;
+  sync.onTap(); // phantom click after the touch: ignored
+  assert.deepEqual(calls, []);
+  advance(900);
+  sync.onTap(); // genuine later click (e.g. mouse): shows
+  assert.deepEqual(calls, ["show"]);
+});
+
+test("wheel and multi-touch behave", () => {
+  const { sync, calls } = setup();
+  sync.onWheel({ deltaY: 120 });
+  sync.onWheel({ deltaY: -120 });
+  assert.deepEqual(calls, ["hide", "show"]);
+  calls.length = 0;
+  sync.onTouchStart(touch(1, 500, 2));
+  sync.onTouchMove(touch(1, 100, 2));
+  sync.onTouchEnd({ touches: [] });
   assert.deepEqual(calls, []);
 });

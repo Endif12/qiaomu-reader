@@ -833,22 +833,40 @@ function setReaderNavbarHidden(view, hidden) {
 }
 function readerNavbarSync(view) {
   if (!view._navbarSync) {
-    let touchY = null;
+    // A tap is a short, almost stationary touch; anything that travels is a
+    // scroll. Clicks right after a touch are the same gesture, already handled.
+    let startX = 0, startY = null, startT = 0, moved = false, lastTouchEnd = 0;
     view._navbarSync = {
       onTouchStart(ev) {
-        touchY = ev.touches.length === 1 ? ev.touches[0].clientY : null;
+        if (ev.touches.length === 1) {
+          startX = ev.touches[0].clientX; startY = ev.touches[0].clientY;
+          startT = Date.now(); moved = false;
+        } else { startY = null; moved = true; }
       },
       onTouchMove(ev) {
-        if (touchY == null || ev.touches.length !== 1) return;
-        const dy = ev.touches[0].clientY - touchY;
-        if (dy <= -14) { setReaderNavbarHidden(view, true); touchY = ev.touches[0].clientY; }
-        else if (dy >= 14) { setReaderNavbarHidden(view, false); touchY = ev.touches[0].clientY; }
+        if (startY == null || ev.touches.length !== 1) return;
+        const dx = ev.touches[0].clientX - startX;
+        const dy = ev.touches[0].clientY - startY;
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) moved = true;
+        if (dy <= -24) { setReaderNavbarHidden(view, true); startX = ev.touches[0].clientX; startY = ev.touches[0].clientY; }
+        else if (dy >= 24) { setReaderNavbarHidden(view, false); startX = ev.touches[0].clientX; startY = ev.touches[0].clientY; }
       },
+      onTouchEnd(ev) {
+        lastTouchEnd = Date.now();
+        if (!moved && startY != null && (Date.now() - startT) < 600 && ev.touches.length === 0) {
+          setReaderNavbarHidden(view, false);
+        }
+        startY = null;
+      },
+      onTouchCancel() { lastTouchEnd = Date.now(); startY = null; },
       onWheel(ev) {
         if (ev.deltaY > 2) setReaderNavbarHidden(view, true);
         else if (ev.deltaY < -2) setReaderNavbarHidden(view, false);
       },
-      onTap() { setReaderNavbarHidden(view, false); },
+      onTap() {
+        if (Date.now() - lastTouchEnd < 800) return;
+        setReaderNavbarHidden(view, false);
+      },
     };
   }
   return view._navbarSync;
@@ -857,6 +875,8 @@ function wireReaderNavbarSync(view, root) {
   const sync = readerNavbarSync(view);
   root.addEventListener("touchstart", sync.onTouchStart, { passive: true });
   root.addEventListener("touchmove", sync.onTouchMove, { passive: true });
+  root.addEventListener("touchend", sync.onTouchEnd, { passive: true });
+  root.addEventListener("touchcancel", sync.onTouchCancel, { passive: true });
   root.addEventListener("wheel", sync.onWheel, { passive: true });
   root.addEventListener("click", sync.onTap);
 }
@@ -876,6 +896,8 @@ function attachEngineChrome(view, doc, index) {
   const navSync = readerNavbarSync(view);
   doc.addEventListener("touchstart", navSync.onTouchStart, { passive: true });
   doc.addEventListener("touchmove", navSync.onTouchMove, { passive: true });
+  doc.addEventListener("touchend", navSync.onTouchEnd, { passive: true });
+  doc.addEventListener("touchcancel", navSync.onTouchCancel, { passive: true });
   doc.addEventListener("wheel", navSync.onWheel, { passive: true });
   doc.addEventListener("click", navSync.onTap);
   doc.addEventListener("contextmenu", (event) => openReaderSelectionContext(view, event, doc, index));
