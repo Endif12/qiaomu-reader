@@ -11103,8 +11103,12 @@ const ReaderView = class extends ItemView {
     const tocBtn = trayButton("list", "table-of-contents", () => this.togglePanel("toc"));
     trayButton("sliders", "reading-settings", () => new ReadSettingsModal(this.app, this).open());
     buildReaderMoreButton(tray, this, (list, add) => {
+      add("the-book-note", "file-text", () => openOrCreateBookNoteBeside(this.plugin, this.file));
       add("highlights", "highlighter", () => this.togglePanel("highlights"));
       add("reset-timer", "rotate-ccw", () => resetTimerSession(this));
+      add("reading-settings", "sliders", () => new ReadSettingsModal(this.app, this).open());
+      list.addSeparator();
+      add("close-the-book", "x", () => this.leaf?.detach());
     });
     buildReaderPageArea(this, root, "qiaomu-reader-area");
     const navBar = root.createDiv("qiaomu-reader-bot");
