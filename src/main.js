@@ -822,11 +822,15 @@ function revealReaderChromeFromPage(view, e) {
 // Convert section coordinates before reusing the reader's navigation rules.
 function attachEngineChrome(view, doc, index) {
   doc.addEventListener("pointerdown", (event) => {
+    if (event.pointerType && event.pointerType !== "mouse") noteTouchSelStart(view);
     beginReaderSelection(view, event);
   });
-  const release = () => { view._selectionDragging = false; };
+  const release = () => { view._selectionDragging = false; noteTouchSelEnd(view); };
   doc.addEventListener("pointerup", release);
   doc.addEventListener("pointercancel", release);
+  doc.addEventListener("touchstart", () => noteTouchSelStart(view), { passive: true });
+  doc.addEventListener("touchend", () => noteTouchSelEnd(view), { passive: true });
+  doc.addEventListener("touchcancel", () => noteTouchSelEnd(view), { passive: true });
   doc.addEventListener("contextmenu", (event) => openReaderSelectionContext(view, event, doc, index));
   doc.addEventListener("pointermove", (event) => {
     const frame = doc.defaultView?.frameElement?.getBoundingClientRect();
@@ -3918,11 +3922,16 @@ function setupReaderSelection(view) {
     view._scheduleSelCheck();
   };
   const context = (event) => openReaderSelectionContext(view, event, doc);
+  const touchStart = () => noteTouchSelStart(view);
+  const touchEnd = () => noteTouchSelEnd(view);
   const outside = (event) => {
     if (view._selectionMenuOpen || view.hlPopup?.contains(event.target) || area.contains(event.target)) return;
     view._hideHlPopup();
   };
   area.addEventListener("contextmenu", context);
+  area.addEventListener("touchstart", touchStart, { passive: true });
+  area.addEventListener("touchend", touchEnd, { passive: true });
+  area.addEventListener("touchcancel", touchEnd, { passive: true });
   doc.addEventListener("pointerdown", outside);
   area.addEventListener("pointerdown", down);
   doc.addEventListener("pointerup", up);
@@ -3933,6 +3942,9 @@ function setupReaderSelection(view) {
     window.clearTimeout(view._selectionFeedbackTimer);
     view._selectionFeedback?.remove();
     area.removeEventListener("contextmenu", context);
+    area.removeEventListener("touchstart", touchStart);
+    area.removeEventListener("touchend", touchEnd);
+    area.removeEventListener("touchcancel", touchEnd);
     doc.removeEventListener("pointerdown", outside);
     area.removeEventListener("pointerdown", down);
     doc.removeEventListener("pointerup", up);
@@ -5440,6 +5452,59 @@ function beginReaderSelection(view, event) {
   view._hideHlPopup?.();
   if (event.pointerType === "mouse") view._selectionDragging = true;
 }
+// Android touch selection: `selectionchange` fires continuously while the
+// handles are dragged, so a short debounce pops the toolbar mid-gesture,
+// covering text and stealing the touch. Gate touch popups on finger lifted
+// + the same text seen twice with a quiet gap; mouse keeps the fast path.
+const TOUCH_SEL_STABLE_MS = 650;
+const TOUCH_SEL_RECENT_MS = 2500;
+const TOUCH_SEL_END_QUIET_MS = 350;
+function noteTouchSelStart(view) {
+  view._touchSelActive = true;
+  view._lastTouchAt = Date.now();
+  view._touchSelKey = null;
+  view._touchSelStableSince = 0;
+  view._hideHlPopup?.();
+}
+function noteTouchSelEnd(view) {
+  view._touchSelActive = false;
+  view._lastTouchAt = Date.now();
+  view._lastTouchEndAt = Date.now();
+}
+function flowSelKey(parts) {
+  return `flow:${parts.map((p) => `${p.block}:${p.text.length}:${(p.text || "").slice(0, 48)}`).join("|")}`;
+}
+// Delay (ms) before a touch selection may raise its popup, or 0 to proceed.
+function touchPopupDelay(view, key) {
+  const now = Date.now();
+  if (!view._touchSelActive && (now - (view._lastTouchAt || 0)) > TOUCH_SEL_RECENT_MS) {
+    view._touchSelKey = null;
+    view._touchSelStableSince = 0;
+    return 0;
+  }
+  if (view._touchSelActive) {
+    view._touchSelKey = key;
+    view._touchSelStableSince = now;
+    return TOUCH_SEL_STABLE_MS;
+  }
+  if ((now - (view._lastTouchEndAt || 0)) < TOUCH_SEL_END_QUIET_MS) {
+    if (view._touchSelKey !== key) {
+      view._touchSelKey = key;
+      view._touchSelStableSince = now;
+    }
+    return TOUCH_SEL_END_QUIET_MS;
+  }
+  if (view._touchSelKey !== key) {
+    view._touchSelKey = key;
+    view._touchSelStableSince = now;
+    return TOUCH_SEL_STABLE_MS;
+  }
+  const elapsed = now - (view._touchSelStableSince || now);
+  if (elapsed < TOUCH_SEL_STABLE_MS) return TOUCH_SEL_STABLE_MS - elapsed;
+  view._touchSelKey = null;
+  view._touchSelStableSince = 0;
+  return 0;
+}
 function engineSelectionRect(doc, range) {
   const r = range.getBoundingClientRect();
   const frame = doc?.defaultView?.frameElement?.getBoundingClientRect();
@@ -5465,6 +5530,12 @@ function openReaderSelectionContext(view, event, doc, index) {
   else {
     const found = flowSelectionParts(view);
     if (!found) return;
+    const delay = touchPopupDelay(view, flowSelKey(found.parts));
+    if (delay > 0) {
+      view._hideHlPopup();
+      view._scheduleSelCheck?.();
+      return;
+    }
     raiseSelectionPopup(view, found.parts, found.range);
   }
   if (!view._currentHl()) return;
@@ -10778,6 +10849,14 @@ const ReaderView = class extends ItemView {
     let cfi = null;
     try { cfi = this.engine.cfiFromRange(index, range); } catch { cfi = null; }
     if (!cfi) return;
+    const touchDelay = touchPopupDelay(this, `cfi:${cfi} text:${text.length}:${text.slice(0, 64)}`);
+    if (touchDelay > 0) {
+      window.clearTimeout(this._engineSelTimer);
+      this._engineSelTimer = window.setTimeout(() => {
+        if (typeof this._engineSelectionCheck === "function") this._engineSelectionCheck({ doc, index });
+      }, touchDelay);
+      return;
+    }
     this._selectionDoc = doc;
     this._pendingSel = { cfi, index, text };
     this._editHlId = matchingSelectionHighlight(this, this._pendingSel)?.id || null;
@@ -11034,6 +11113,9 @@ const ReaderView = class extends ItemView {
     this.registerDomEvent(docOf(this.containerEl), "selectionchange", () => this._scheduleSelCheck());
     const flagSelection = () => this._scheduleSelCheck();
     this.areaEl.addEventListener("mouseup", flagSelection);
+    this.areaEl.addEventListener("touchstart", () => noteTouchSelStart(this), { passive: true });
+    this.areaEl.addEventListener("touchend", () => noteTouchSelEnd(this), { passive: true });
+    this.areaEl.addEventListener("touchcancel", () => noteTouchSelEnd(this), { passive: true });
     attachReaderContentClick(this);
     const hidePopup = () => this._hideHlPopup();
     this.registerDomEvent(docOf(this.containerEl), "mousedown", (ev) => {
@@ -11303,7 +11385,14 @@ const ReaderView = class extends ItemView {
     if (this.engine || this._selectionMenuOpen || this._selectionDragging || this._pdfPanning || this.pdfPanMode || this._editHlId || this._commentEditing || this._lookupOpen) return;
     const found = flowSelectionParts(this);
     if (!found) {
+      this._touchSelKey = null;
       this._hideHlPopup();
+      return;
+    }
+    const delay = touchPopupDelay(this, flowSelKey(found.parts));
+    if (delay > 0) {
+      window.clearTimeout(this._selTimer);
+      this._selTimer = window.setTimeout(() => this._onSelectionCheck(), delay);
       return;
     }
     raiseSelectionPopup(this, found.parts, found.range);
@@ -12543,6 +12632,9 @@ const ReaderModal = class extends Modal {
     const noteSelection = () => this._scheduleSelCheck();
     this._selHandler = noteSelection;
     this._selDoc.addEventListener("selectionchange", noteSelection);
+    this.areaEl.addEventListener("touchstart", () => noteTouchSelStart(this), { passive: true });
+    this.areaEl.addEventListener("touchend", () => noteTouchSelEnd(this), { passive: true });
+    this.areaEl.addEventListener("touchcancel", () => noteTouchSelEnd(this), { passive: true });
     attachReaderContentClick(this);
     attachReaderSwipeNav(this);
     wireReaderChrome(this, root);
@@ -12827,6 +12919,12 @@ const ReaderModal = class extends Modal {
     let cfi = null;
     try { cfi = this.engine.cfiFromRange(index, range); } catch { cfi = null; }
     if (!cfi) return;
+    const touchDelay = touchPopupDelay(this, `cfi:${cfi} text:${text.length}:${text.slice(0, 64)}`);
+    if (touchDelay > 0) {
+      window.clearTimeout(this._engineSelTimer);
+      this._engineSelTimer = window.setTimeout(() => this._engineSelectionCheck({ doc, index }), touchDelay);
+      return;
+    }
     this._selectionDoc = doc;
     this._pendingSel = { cfi, index, text };
     this._editHlId = matchingSelectionHighlight(this, this._pendingSel)?.id || null;
@@ -13007,7 +13105,14 @@ const ReaderModal = class extends Modal {
     if (this.engine || this._selectionMenuOpen || this._selectionDragging || this._pdfPanning || this.pdfPanMode || this._editHlId || this._commentEditing || this._lookupOpen) return;
     const found = flowSelectionParts(this);
     if (!found) {
+      this._touchSelKey = null;
       this._hideHlPopup();
+      return;
+    }
+    const delay = touchPopupDelay(this, flowSelKey(found.parts));
+    if (delay > 0) {
+      window.clearTimeout(this._selTimer);
+      this._selTimer = window.setTimeout(() => this._onSelectionCheck(), delay);
       return;
     }
     raiseSelectionPopup(this, found.parts, found.range);
