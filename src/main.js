@@ -818,6 +818,48 @@ function revealReaderChromeFromPage(view, e) {
   return true;
 }
 
+// Phones hide Obsidian's bottom navbar while a note scrolls and bring it back
+// on tap. The reader scrolls inside its own containers, which never reach that
+// listener, so mirror it here: scroll down hides, scroll up or a plain tap
+// shows. Native hide()/show() keep layout identical to notes; both no-op
+// where the navbar does not exist (desktop).
+function setReaderNavbarHidden(view, hidden) {
+  try {
+    const bar = view?.app?.mobileNavbar;
+    if (!bar) return;
+    if (hidden) bar.hide();
+    else bar.show();
+  } catch { /* app chrome must never break reading */ }
+}
+function readerNavbarSync(view) {
+  if (!view._navbarSync) {
+    let touchY = null;
+    view._navbarSync = {
+      onTouchStart(ev) {
+        touchY = ev.touches.length === 1 ? ev.touches[0].clientY : null;
+      },
+      onTouchMove(ev) {
+        if (touchY == null || ev.touches.length !== 1) return;
+        const dy = ev.touches[0].clientY - touchY;
+        if (dy <= -14) { setReaderNavbarHidden(view, true); touchY = ev.touches[0].clientY; }
+        else if (dy >= 14) { setReaderNavbarHidden(view, false); touchY = ev.touches[0].clientY; }
+      },
+      onWheel(ev) {
+        if (ev.deltaY > 2) setReaderNavbarHidden(view, true);
+        else if (ev.deltaY < -2) setReaderNavbarHidden(view, false);
+      },
+      onTap() { setReaderNavbarHidden(view, false); },
+    };
+  }
+  return view._navbarSync;
+}
+function wireReaderNavbarSync(view, root) {
+  const sync = readerNavbarSync(view);
+  root.addEventListener("touchstart", sync.onTouchStart, { passive: true });
+  root.addEventListener("touchmove", sync.onTouchMove, { passive: true });
+  root.addEventListener("wheel", sync.onWheel, { passive: true });
+  root.addEventListener("click", sync.onTap);
+}
 // iframe events do not bubble to the host's immersive chrome or tap zones.
 // Convert section coordinates before reusing the reader's navigation rules.
 function attachEngineChrome(view, doc, index) {
@@ -831,6 +873,11 @@ function attachEngineChrome(view, doc, index) {
   doc.addEventListener("touchstart", () => noteTouchSelStart(view), { passive: true });
   doc.addEventListener("touchend", () => noteTouchSelEnd(view), { passive: true });
   doc.addEventListener("touchcancel", () => noteTouchSelEnd(view), { passive: true });
+  const navSync = readerNavbarSync(view);
+  doc.addEventListener("touchstart", navSync.onTouchStart, { passive: true });
+  doc.addEventListener("touchmove", navSync.onTouchMove, { passive: true });
+  doc.addEventListener("wheel", navSync.onWheel, { passive: true });
+  doc.addEventListener("click", navSync.onTap);
   doc.addEventListener("contextmenu", (event) => openReaderSelectionContext(view, event, doc, index));
   doc.addEventListener("pointermove", (event) => {
     const frame = doc.defaultView?.frameElement?.getBoundingClientRect();
@@ -11127,6 +11174,7 @@ const ReaderView = class extends ItemView {
     this.areaEl.addEventListener("touchstart", () => noteTouchSelStart(this), { passive: true });
     this.areaEl.addEventListener("touchend", () => noteTouchSelEnd(this), { passive: true });
     this.areaEl.addEventListener("touchcancel", () => noteTouchSelEnd(this), { passive: true });
+    wireReaderNavbarSync(this, this.contentEl);
     attachReaderContentClick(this);
     const hidePopup = () => this._hideHlPopup();
     this.registerDomEvent(docOf(this.containerEl), "mousedown", (ev) => {
@@ -12646,6 +12694,7 @@ const ReaderModal = class extends Modal {
     this.areaEl.addEventListener("touchstart", () => noteTouchSelStart(this), { passive: true });
     this.areaEl.addEventListener("touchend", () => noteTouchSelEnd(this), { passive: true });
     this.areaEl.addEventListener("touchcancel", () => noteTouchSelEnd(this), { passive: true });
+    wireReaderNavbarSync(this, this.contentEl);
     attachReaderContentClick(this);
     attachReaderSwipeNav(this);
     wireReaderChrome(this, root);
@@ -13251,6 +13300,7 @@ const ReaderModal = class extends Modal {
     this.engine?.destroy(); this.engine = null; this._engineLocation = null;
     this._pageKeysCleanup?.(); this._pageKeysCleanup = null;
     if (this.plugin._openReaderModal === this) { this.plugin._openReaderModal = null; }
+    setReaderNavbarHidden(this, false);
     clearFoundIn(this); this._removeSelectionListener();
     this._detachReaderObservers(); this.contentEl.empty();
   }
