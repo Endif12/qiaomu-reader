@@ -1026,6 +1026,8 @@ function attachReaderSwipeNav(view) {
   const onStart = (ev) => {
     if (ev.touches.length > 1) { axis = "v"; return; }
     if (readerIsPdf(view) && clampPdfZoom(view.pdfZoom) > PDF_ZOOM_DEFAULT + 0.001) { axis = "v"; return; }
+    // Scroll reading: horizontal swipes must not turn pages and fight scrolling.
+    if ((view.pager && view.pager.scrollMode) || (!readerIsPdf(view) && view.plugin && view.plugin.settings && view.plugin.settings.readMode === "scroll")) { axis = "v"; return; }
     originX = ev.touches[0].clientX;
     originY = ev.touches[0].clientY;
     axis = null;
@@ -2050,6 +2052,11 @@ const QiaomuBookReader = class extends Plugin {
     this.settings.aiCliEfforts = { ...(this.settings.aiCliEfforts || {}) };
     this.settings.aiChatHistory = normalizeAiChatHistory(this.settings.aiChatHistory);
     this.settings.locationMarks = normalizeLocationMarks(this.settings.locationMarks);
+    // Personal fork default: phones read in vertical scroll unless the user
+    // already picked a mode. An explicitly saved choice is never overridden.
+    if (saved?.settings?.readMode === undefined && qiaomuReaderDeviceKey() === "phone") {
+      this.settings.readMode = "scroll";
+    }
     if (this.settings.aiProvider && this.settings.aiModel && !this.settings.aiModels[this.settings.aiProvider]) {
       this.settings.aiModels[this.settings.aiProvider] = this.settings.aiModel;
     }
